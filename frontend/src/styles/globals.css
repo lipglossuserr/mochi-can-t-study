@@ -1,0 +1,408 @@
+@import "tailwindcss";
+
+/*
+  Mochi design tokens — "strawberry mochi" pink edition.
+  The original taro/matcha token NAMES are kept so every existing page
+  (login, register, dashboard) picks up the new soft-pink look without
+  a single component change. Values are re-tinted toward a dreamy,
+  milky pink: rose petals, strawberry cream, and rose-gold.
+*/
+@theme {
+  --font-display: "Fredoka", ui-rounded, "SF Pro Rounded", sans-serif;
+  --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* primary rose (was taro purple) */
+  --color-taro: #e0709e;
+  --color-taro-light: #f7cadd;
+  --color-taro-dark: #bd4f7e;
+
+  /* success / focused (kept green, softened to sage) */
+  --color-matcha: #8fbf8a;
+  --color-matcha-light: #cde7c9;
+
+  /* blush pinks */
+  --color-blush: #f2a0bd;
+  --color-blush-light: #fbd9e6;
+
+  /* soft neutrals */
+  --color-cream: #fff4f8;
+  --color-petal: #ffe7f1;
+  --color-ink: #4b2e3d;
+
+  /* new study-room accents */
+  --color-rosegold: #d68ba6;
+  --color-berry: #b2486f;
+  --color-butter: #fff0d9;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* gentle twinkle for the star ornaments in the study room */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.sparkle {
+  animation: twinkle 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Living Home — unified motion language (Sprint 5.3)
+   One vocabulary for every animation in the Home: shared duration and
+   easing tokens, the keyframes behind Mochi's physiology and the room's
+   ambience, and a global prefers-reduced-motion story at the bottom.
+   ========================================================================== */
+
+:root {
+  --motion-fast: 150ms;
+  --motion-medium: 300ms;
+  --motion-slow: 600ms;
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* --- shared hover response: the ONE lift used by room objects --- */
+.room-hover {
+  transition:
+          transform var(--motion-medium) var(--ease-settle),
+          box-shadow var(--motion-medium) var(--ease-soft);
+}
+.room-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px -10px rgba(168, 106, 138, 0.45);
+}
+
+/* --- Mochi physiology (always-on micro-life) --- */
+@keyframes mochi-breathe {
+  /* Sprint 5.5: amplitude now reads through --breath-amp (default 1, set
+     inline by LivingMochiRenderer and nudged by a small, slow-changing
+     random value) so consecutive breaths aren't perfectly identical —
+     duration variation shipped in 5.3B/5.4; this is the amplitude half. */
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(calc(1 + 0.018 * var(--breath-amp, 1))); }
+}
+.mochi-breathe { animation: mochi-breathe 4.6s var(--ease-soft) infinite; }
+
+@keyframes mochi-blink {
+  0%, 94.5%, 100% { transform: translateY(0) scaleY(1); opacity: 0; }
+  95.5%, 97.5% { transform: translateY(9px) scaleY(22); opacity: 1; }
+}
+.mochi-blink rect { transform-box: fill-box; transform-origin: center top; }
+.mochi-blink rect:first-child { animation: mochi-blink 5.3s linear infinite; }
+.mochi-blink rect:last-child { animation: mochi-blink 5.3s linear infinite; animation-delay: 0.04s; }
+
+/* Sprint 5.5: a rare, quick extra blink layered on top of the regular
+   cycle — real blinking isn't perfectly metronomic. Triggered rarely and
+   briefly by LivingMochiRenderer toggling this class; it always finishes
+   (short, non-looping) rather than getting stuck mid-blink. */
+@keyframes mochi-blink-pulse {
+  0%, 100% { transform: translateY(0) scaleY(1); opacity: 0; }
+  50% { transform: translateY(9px) scaleY(22); opacity: 1; }
+}
+.mochi-blink-pulse rect:first-child,
+.mochi-blink-pulse rect:last-child {
+  animation: mochi-blink-pulse 0.26s ease-in-out 1;
+}
+
+@keyframes mochi-ear-twitch {
+  0%, 91%, 100% { transform: rotate(0deg); }
+  93% { transform: rotate(-7deg); }
+  95% { transform: rotate(4deg); }
+  97% { transform: rotate(-2deg); }
+}
+.mochi-ear { animation: mochi-ear-twitch 8.5s ease-in-out infinite; }
+
+@keyframes mochi-tail-flick {
+  0%, 86%, 100% { transform: rotate(0deg); }
+  90% { transform: rotate(9deg); }
+  94% { transform: rotate(-5deg); }
+}
+.mochi-tail { animation: mochi-tail-flick 7.2s ease-in-out infinite; }
+
+/* Three look-around shapes (Sprint 5.3A-2, Gap 5): the sweep pattern
+   itself now varies — left/right/near/wide/one-sided — not just its
+   trigger timing, which was the single most repetitive idle detail on
+   close observation. One is picked at random each time she looks
+   around; see LivingMochiRenderer's LOOK_AROUND_VARIANTS. */
+@keyframes mochi-look-around {
+  0%, 20% { transform: translateX(0); }
+  35%, 50% { transform: translateX(-4px); }
+  65%, 80% { transform: translateX(4px); }
+  95%, 100% { transform: translateX(0); }
+}
+.mochi-look-around { animation: mochi-look-around 2s var(--ease-soft) 1; }
+
+@keyframes mochi-look-around-alt {
+  0%, 15% { transform: translate(0, 0); }
+  40%, 55% { transform: translate(3px, -1.5px); }
+  100% { transform: translate(0, 0); }
+}
+.mochi-look-around-alt { animation: mochi-look-around-alt 2s var(--ease-soft) 1; }
+
+@keyframes mochi-look-around-wide {
+  0%, 12% { transform: translateX(0); }
+  30%, 42% { transform: translateX(-5px); }
+  58%, 70% { transform: translateX(5px); }
+  86%, 100% { transform: translateX(0); }
+}
+.mochi-look-around-wide { animation: mochi-look-around-wide 2s var(--ease-soft) 1; }
+
+@keyframes mochi-nom {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.35); }
+}
+.mochi-nom { animation: mochi-nom 0.45s ease-in-out infinite; }
+
+@keyframes mochi-purr {
+  0%, 100% { opacity: 0.35; transform: translateX(0); }
+  50% { opacity: 0.85; transform: translateX(3px); }
+}
+.mochi-purr { animation: mochi-purr 0.9s ease-in-out infinite; }
+
+@keyframes mochi-zzz {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.8); }
+  40% { opacity: 0.7; }
+  100% { opacity: 0; transform: translate(8px, -10px) scale(1.1); }
+}
+.mochi-zzz { animation: mochi-zzz 2.8s ease-in-out infinite; }
+
+/* --- petting feedback --- */
+@keyframes pet-particle-float {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+  20% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(-50%, -34px) scale(1.15); }
+}
+.pet-particle { animation: pet-particle-float 1.2s var(--ease-soft) forwards; }
+
+/* --- tap-to-boop: a quick, playful reaction distinct from stroking --- */
+@keyframes boop-squish {
+  0% { transform: scale(1, 1); }
+  30% { transform: scale(0.88, 1.14); }
+  55% { transform: scale(1.1, 0.9); }
+  80% { transform: scale(0.97, 1.03); }
+  100% { transform: scale(1, 1); }
+}
+.character-boop { animation: boop-squish 0.42s var(--ease-settle); }
+
+/* --- decor edit mode: placed furniture wiggles to signal it's now
+   draggable/removable, same read as iOS/Android home-screen jiggle.
+   Delay is set per-item inline (--wiggle-delay) so a room full of
+   furniture doesn't wiggle in perfect unison. --- */
+@keyframes decor-wiggle {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+.decor-wiggle {
+  animation: decor-wiggle 0.34s ease-in-out infinite;
+  animation-delay: var(--wiggle-delay, 0s);
+}
+
+@keyframes boop-particle-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
+  18% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--boop-dx, 0px)), calc(-50% + var(--boop-dy, 0px))) scale(1.05) rotate(40deg);
+  }
+}
+.boop-particle { animation: boop-particle-burst 0.75s var(--ease-soft) forwards; }
+
+/* --- dreamy ambient page backdrop: soft drifting light blobs behind every room --- */
+@keyframes blob-drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, 6%) scale(1.08); }
+}
+@keyframes blob-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-5%, 4%) scale(1.05); }
+}
+@keyframes blob-drift-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, -5%) scale(1.1); }
+}
+.ambient-blob-a { animation: blob-drift-a 22s var(--ease-soft) infinite; }
+.ambient-blob-b { animation: blob-drift-b 26s var(--ease-soft) infinite; }
+.ambient-blob-c { animation: blob-drift-c 19s var(--ease-soft) infinite; }
+
+/* --- soft glow-on-hover for room objects / buttons that want extra "juice" --- */
+.glow-hover {
+  transition: box-shadow 0.25s var(--ease-soft), transform 0.25s var(--ease-soft);
+}
+.glow-hover:hover {
+  box-shadow: 0 0 0 6px rgba(224, 112, 158, 0.16), 0 20px 40px -16px rgba(224, 112, 158, 0.55);
+}
+
+/* --- gradient nameplate text --- */
+.text-gradient-strawberry {
+  background: linear-gradient(90deg, var(--color-berry), var(--color-taro), var(--color-rosegold));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* --- the living room --- */
+@keyframes room-cloud-drift {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(360%); }
+}
+.room-cloud { animation: room-cloud-drift 19s linear infinite; }
+
+@keyframes room-sun-glow {
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(255, 240, 217, 0.9); }
+  50% { box-shadow: 0 0 18px 5px rgba(255, 240, 217, 0.95); }
+}
+.room-sun { animation: room-sun-glow 6s var(--ease-soft) infinite; }
+
+@keyframes room-plant-sway {
+  0%, 100% { transform: rotate(calc(-1.6deg * var(--env-motion, 1))); }
+  50% { transform: rotate(calc(1.6deg * var(--env-motion, 1))); }
+}
+.room-plant { transform-origin: 50% 100%; animation: room-plant-sway 5.4s var(--ease-soft) infinite; }
+
+@keyframes room-rug-breathe {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.85; }
+  50% { transform: translateX(-50%) scale(1.04); opacity: 1; }
+}
+.room-rug { animation: room-rug-breathe 4.6s var(--ease-soft) infinite; }
+
+@keyframes ambient-mote-drift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(7px, -11px); }
+  50% { transform: translate(-5px, -20px); }
+  75% { transform: translate(6px, -9px); }
+  100% { transform: translate(0, 0); }
+}
+.ambient-mote { animation: ambient-mote-drift 12s ease-in-out infinite; }
+
+@keyframes ambient-ray-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+.ambient-ray { animation: ambient-ray-pulse 9s var(--ease-soft) infinite; }
+
+/* --- Sprint 6.1: Shared Living Space & Environmental Awareness --------- */
+
+/* Curtain sway — amplitude reads `--env-motion` (0..1, set by
+   AmbientLayer on RoomScene's root and inherited down the tree), so a
+   sleepy or quiet-night room sways barely at all while an energetic
+   moment sways a touch more. 7.6s period deliberately doesn't divide
+   evenly into the plant's 5.4s or the dust's 9–17s, so the two never
+   drift into visible lockstep ("sparse ambient motion" — nothing here
+   is meant to move in unison). */
+@keyframes env-curtain-sway {
+  0%, 100% { transform: rotate(calc(-1.3deg * var(--env-motion, 1))); }
+  50% { transform: rotate(calc(1.3deg * var(--env-motion, 1))); }
+}
+.env-curtain { animation: env-curtain-sway 7.6s var(--ease-soft) infinite; }
+
+/* Drifting shadow — a very slow, barely-there positional drift layered
+   under the window-light overlay in `AmbientLayer`. Its opacity/angle
+   are already set inline from `--env-brightness`/`--env-angle`; this
+   keyframe only adds the "drifting" part, scaled by `--env-motion` so
+   it goes still along with everything else when appropriate. */
+@keyframes env-shadow-glide {
+  0%, 100% { translate: 0 0; }
+  50% { translate: calc(-6px * var(--env-motion, 1)) calc(4px * var(--env-motion, 1)); }
+}
+.env-shadow-drift { animation: env-shadow-glide 42s var(--ease-soft) infinite; }
+
+/* --- accessibility: reduce, don't remove ---------------------------------
+   Decorative motion stops entirely; functional transitions collapse to
+   near-instant. Petting, states, and navigation all keep working. */
+@media (prefers-reduced-motion: reduce) {
+  .mochi-breathe,
+  .mochi-blink rect,
+  .mochi-blink-pulse rect:first-child,
+  .mochi-blink-pulse rect:last-child,
+  .mochi-ear,
+  .mochi-tail,
+  .mochi-look-around,
+  .mochi-look-around-alt,
+  .mochi-look-around-wide,
+  .mochi-nom,
+  .mochi-purr,
+  .mochi-zzz,
+  .pet-particle,
+  .room-cloud,
+  .room-sun,
+  .room-plant,
+  .room-rug,
+  .ambient-mote,
+  .ambient-ray,
+  .env-curtain,
+  .env-shadow-drift,
+  .sparkle,
+  .character-boop,
+  .decor-wiggle,
+  .boop-particle,
+  .ambient-blob-a,
+  .ambient-blob-b,
+  .ambient-blob-c {
+    animation: none !important;
+  }
+  .room-hover,
+  .room-hover:hover {
+    transition-duration: 1ms;
+    transform: none;
+  }
+}
+/* Flashcards — 3D flip */
+.flip-card { perspective: 1400px; }
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s var(--ease-settle, cubic-bezier(0.34, 1.56, 0.64, 1));
+  transform-style: preserve-3d;
+}
+.flip-card-inner.is-flipped { transform: rotateY(180deg); }
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-card-back { transform: rotateY(180deg); }
+
+/* Flashcards — glittery pink surface: soft sparkle dots + a slow diagonal shimmer sweep */
+.glitter-surface {
+  background-image:
+          radial-gradient(circle at 15% 20%, rgba(255,255,255,0.9) 0, rgba(255,255,255,0) 2%),
+          radial-gradient(circle at 85% 15%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0) 1.6%),
+          radial-gradient(circle at 75% 80%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0) 1.8%),
+          radial-gradient(circle at 25% 85%, rgba(255,255,255,0.7) 0, rgba(255,255,255,0) 1.4%),
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,0.5) 0, rgba(255,255,255,0) 1.2%);
+}
+.glitter-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+  background-size: 250% 250%;
+  animation: glitter-shimmer 5s ease-in-out infinite;
+}
+@keyframes glitter-shimmer {
+  0% { background-position: -50% -50%; }
+  100% { background-position: 150% 150%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner { transition: none; }
+  .glitter-surface::after { animation: none; }
+}

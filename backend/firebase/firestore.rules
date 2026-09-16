@@ -1,0 +1,179 @@
+rules_version = '2';
+
+// This project's Firestore security rules cover two independent
+// features that each own a disjoint set of top-level collections:
+// Community Rooms (`communities/**`) and Study Rooms (`rooms/**`,
+// `reports/**`). They're combined here only because Firestore allows
+// exactly one rules file per project — see each section's own header
+// comment below for that feature's specific reasoning.
+
+// ---------------------------------------------------------------
+// Community Rooms, Phase 6: chat. Authorizes purely off the
+// communities/{communityId}/members/{uid} mirror docs that
+// CommunityService/CommunityMemberMirrorRepository write on every
+// membership change (see that class's javadoc) — no round trip to
+// Spring on every message, per the design doc's Option B rationale.
+//
+// This file is the OTHER half of the sync contract: the mirror docs
+// are only ever written by the backend's Admin SDK (which bypasses
+// these rules entirely), so every `allow` below that reads a member
+// doc is trusting that CommunityService kept it current. If that sync
+// ever drifts, this is where the drift becomes a real authorization
+// bug, not just a stale read — see CommunityService's javadoc for the
+// known limitation (best-effort sync, not a shared transaction).
+//
+// v2 backlog update: message and chatCooldown WRITES are no longer
+// permitted here at all. They used to be, gated by a cooperative-client
+// cooldown check — see the removed `withinCooldown` function's old
+// comment, preserved in git history, for why that was an honest but
+// real bypass (a client could just never write the cooldown doc). That
+// write path now goes through ChatService (Spring backend, Admin SDK —
+// see its javadoc for why this is a Spring endpoint and not a Cloud
+// Function: Cloud Functions require Firebase's paid Blaze plan to
+// deploy at all, which is a real cost for a feature that doesn't need
+// it). Admin SDK writes bypass these rules entirely regardless of which
+// server does them, so nothing here needs an `allow` for the write
+// path. What's left below is deliberately read-only for regular users
+// on both messages and chatCooldowns; there is no `allow create`/
+// `allow write` for either collection, and an absent rule denies by
+// default.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /communities/{communityId} {
+
+      // Membership mirror. Read-only for the member's own doc (lets the
+      // client show "you're a member" state without a Spring round
+      // trip); all writes are Admin-SDK-only from CommunityService, so
+      // there is deliberately no `allow write` here for regular users —
+      // an absent rule denies by default.
+      match /members/{uid} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      // Chat messages. Read gated on the caller's own mirror doc having
+      // status == 'APPROVED' — a PENDING, REJECTED, or BANNED member
+      // (or a stranger) gets denied without this rule needing to know
+      // anything about MySQL. Writes go through ChatService only
+      // (Admin SDK, bypasses this file) — see this file's header
+      // comment for why that changed.
+      match /messages/{messageId} {
+        allow read: if isApprovedMember(communityId);
+
+        // No update/delete rule either — messages are immutable and
+        // undeletable from the client by design (v1 scope; moderation
+        // of chat content is a documented gap the same way the report
+        // queue doesn't cover chat yet — see ReportService's javadoc).
+      }
+
+      // Per-user send-cooldown bookkeeping for ChatService's atomic
+      // rate-limit check. Written only by that service via the Admin
+      // SDK now — read-only here, purely so a signed-in member could
+      // in principle inspect their own cooldown state for debugging;
+      // the chat UI itself doesn't need to read this.
+      match /chatCooldowns/{uid} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Study Rooms. Moderation surface (roadmap §3.2): host-only
+    // participant removal, self-claim host transfer for the "host went
+    // silent" case, and an append-only reports collection. Server-side
+    // mute/remove of a participant's actual LiveKit audio/video track
+    // is handled by the backend's RoomModerationController — these
+    // rules only cover the Firestore-side bookkeeping (who's allowed to
+    // touch which doc), not LiveKit itself.
+    // ---------------------------------------------------------------
+
+    match /rooms/{roomId} {
+      allow read: if isSignedIn();
+
+      // Only the room's own host can create it, and only with the
+      // fields this prototype actually writes.
+      allow create: if isSignedIn()
+        && request.resource.data.hostUserId == request.auth.uid;
+
+      allow update: if isSignedIn() && (
+        // The current host can change anything (start the timer, end
+        // the room, etc.) — unchanged from Phase 0/1.
+        resource.data.hostUserId == request.auth.uid
+        ||
+        // Host-transfer-on-disconnect (Phase 5 moderation): any
+        // signed-in user may claim host for themselves — and only for
+        // themselves, never appoint someone else — by changing
+        // hostUserId and nothing else. The client only does this when
+        // the current host's presence has gone stale (see
+        // useCoStudyRoom's ghost-detection); rules can't cheaply
+        // verify staleness themselves, so this is deliberately a
+        // narrow, self-only capability rather than an open one.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hostUserId'])
+          && request.resource.data.hostUserId == request.auth.uid)
+      );
+
+      allow delete: if false;
+
+      match /participants/{userId} {
+        allow read: if isSignedIn();
+
+        // A user can only ever create/update their OWN participant
+        // doc — never someone else's presence.
+        allow create, update: if isSignedIn()
+          && request.auth.uid == userId;
+
+        // Deleting a participant doc: either you're leaving
+        // voluntarily (self-delete, unchanged since Phase 0/1), or
+        // you're the room's current host removing someone —
+        // moderation's "remove participant" (roadmap §3.2). The
+        // get() lookup costs one extra read but only runs on delete,
+        // not on every join/heartbeat.
+        allow delete: if isSignedIn() && (
+          request.auth.uid == userId
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.hostUserId == request.auth.uid
+        );
+      }
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+
+        // Chat is append-only: no edits, no deletes. A message must
+        // be authored as the sender's own uid — except the literal
+        // 'system' messages the app posts for join/leave events,
+        // which every authenticated room member is allowed to write
+        // since there's no separate server writing them yet.
+        allow create: if isSignedIn()
+          && (request.resource.data.userId == request.auth.uid
+              || request.resource.data.userId == 'system');
+        allow update, delete: if false;
+      }
+    }
+
+    // Study Rooms moderation reports (roadmap §3.2's "report" action).
+    // Deliberately top-level, not nested under rooms/{roomId} — a
+    // report is a record for later human review, not part of the
+    // room's own live state, and it should outlive the room it was
+    // filed in (rooms aren't deleted, but conceptually could be
+    // someday; reports shouldn't be tied to that lifecycle). No client
+    // read/update/delete: there's no in-app moderation review UI yet,
+    // so reports are only ever inspected via the Firebase console —
+    // write-only from the client's perspective is the correct trust
+    // boundary until that exists. (Distinct from Community Rooms'
+    // report *queue*, which lives in MySQL via ReportService/
+    // ModerationQueuePage, not here — Study Rooms has no such queue
+    // UI yet.)
+    match /reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUserId == request.auth.uid;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isApprovedMember(communityId) {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid)).data.status == 'APPROVED';
+    }
+  }
+}

@@ -1,0 +1,17 @@
+# Firebase credentials — NEVER commit the real key
+firebase/serviceAccountKey.json
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Logs
+*.log

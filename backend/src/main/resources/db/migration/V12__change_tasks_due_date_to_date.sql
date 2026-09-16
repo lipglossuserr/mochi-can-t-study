@@ -1,0 +1,15 @@
+-- Fixes a real bug, not just a cosmetic cleanup: `tasks.due_date` was
+-- DATETIME(6), mapped in Task.java to `Instant`. A due date is a
+-- calendar day (see Task.java's own doc comment — "not a reminder/
+-- notification trigger, display-only"), so the frontend's
+-- `<input type="date">` has only ever sent bare `yyyy-MM-dd` strings.
+-- Jackson's Instant deserializer requires a time + offset/Z, so every
+-- create/update that included a due date failed with a 400 ("Malformed
+-- request body") before a row could ever be written — no existing row
+-- can have a non-null due_date yet, so this MODIFY is safe: there is no
+-- meaningful data to truncate.
+--
+-- Task.java/CreateTaskRequest/UpdateTaskRequest/TaskResponse move to
+-- LocalDate in the same change (see those files) — this migration is
+-- the column's half of that fix.
+ALTER TABLE tasks MODIFY COLUMN due_date DATE NULL;

@@ -1,0 +1,27 @@
+# Environment variables — contains real Firebase config, never commit
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Vite / TS build cache
+node_modules/.tmp/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+*.log
+
+# IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store

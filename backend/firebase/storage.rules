@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// Community Rooms, v2 backlog: real image uploads for community icons
+// and blog cover images — closing the "just paste a URL" v1
+// simplification those two fields shipped with.
+//
+// Two path shapes, two different access rules:
+//
+// community-icons/{uid}/{fileName} — keyed by the UPLOADER's uid, not
+// a community id. This is deliberate: a community icon is chosen
+// during community CREATION, before the community exists in MySQL or
+// has a Firestore membership mirror to check against — there is no
+// communityId yet to gate on. Keying by uid instead means "you can
+// only write to your own icon-staging area," which is all that's
+// actually needed; the resulting download URL is simply submitted as
+// `iconUrl` in the create-community request afterward, same as if the
+// person had pasted an external URL.
+//
+// blog-covers/{communityId}/{uid}/{fileName} — a blog post is always
+// created within an EXISTING community, so a real communityId is
+// available at upload time. Gated on the same
+// communities/{communityId}/members/{uid} mirror doc
+// CommunityMemberMirrorRepository already keeps in sync for chat (see
+// firestore.rules) — an approved member of that community, and no
+// one else, can upload a cover for it.
+//
+// Both paths: 8MB cap, image/* content-type only, public read. Read
+// is intentionally NOT gated on membership — these URLs aren't
+// guessable (they include the uploader's uid and a timestamp) and are
+// only ever handed out via the Spring API responses that already
+// enforce their own access rules, so an unauthenticated direct fetch
+// of a known URL is treated the same way a public CDN asset would be.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /community-icons/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /blog-covers/{communityId}/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*')
+        && firestore.get(/databases/(default)/documents/communities/$(communityId)/members/$(uid)).data.status == 'APPROVED';
+    }
+  }
+}

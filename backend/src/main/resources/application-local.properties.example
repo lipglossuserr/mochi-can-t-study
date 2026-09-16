@@ -1,0 +1,8 @@
+# Copy this file to application-local.properties (same folder) and fill
+# in real values. application-local.properties is gitignored — it's
+# loaded automatically because application.properties sets
+# spring.profiles.active=local.
+
+livekit.api-key=APIxxxxxxxx
+livekit.api-secret=your_secret_here
+livekit.ws-url=wss://your-project.livekit.cloud
