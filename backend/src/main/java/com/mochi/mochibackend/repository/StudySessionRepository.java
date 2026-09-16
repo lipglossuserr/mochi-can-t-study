@@ -20,4 +20,19 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
 
     /** Used by AchievementService — total completed sessions is one of its criteria inputs. */
     long countByUserUidAndStatus(String userUid, SessionStatus status);
+
+    /** Every session (any status, any user) started from a given co-study room — Study Rooms Phase 2 summary. */
+    List<StudySession> findAllByRoomIdOrderByCreatedAtAsc(String roomId);
+
+    /** A single user's own room-linked session history, newest first — Study Rooms Phase 5 personal analytics. */
+    List<StudySession> findAllByUserUidAndRoomIdIsNotNullOrderByCreatedAtDesc(String userUid);
+
+    /**
+     * Every still-active (RUNNING/PAUSED) session in a room — Study
+     * Rooms "all must finish" policy. Used to bulk-stop every
+     * participant's session at once when that policy is violated, so
+     * no one who was still connected keeps studying toward a reward
+     * the room has already decided is void.
+     */
+    List<StudySession> findAllByRoomIdAndStatusIn(String roomId, Collection<SessionStatus> statuses);
 }

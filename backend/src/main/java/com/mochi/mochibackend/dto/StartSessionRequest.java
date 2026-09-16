@@ -2,6 +2,7 @@ package com.mochi.mochibackend.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -28,4 +29,15 @@ public class StartSessionRequest {
      * rejected the same way an unknown/foreign task id is elsewhere.
      */
     private Long taskId;
+
+    /**
+     * Optional. The Firestore co-study room id (rooms/{roomId}) this
+     * session was started from — Study Rooms Phase 2. Not validated
+     * against Firestore here (unlike taskId against MySQL): the room
+     * doc's own security rules already gate who can be in it, and a
+     * stale/bogus id here only affects room-summary aggregation, never
+     * ownership or rewards, so it's stored as given.
+     */
+    @Size(max = 64, message = "roomId is too long")
+    private String roomId;
 }

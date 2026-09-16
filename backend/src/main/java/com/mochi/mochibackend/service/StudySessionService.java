@@ -3,6 +3,7 @@ package com.mochi.mochibackend.service;
 import com.mochi.mochibackend.achievement.service.AchievementService;
 import com.mochi.mochibackend.config.FocusPolicy;
 import com.mochi.mochibackend.dailygoal.service.DailyGoalService;
+import com.mochi.mochibackend.dto.RoomAnalyticsResponse;
 import com.mochi.mochibackend.dto.StartSessionRequest;
 import com.mochi.mochibackend.exception.ActiveSessionExistsException;
 import com.mochi.mochibackend.exception.InvalidSessionRequestException;
@@ -13,6 +14,9 @@ import com.mochi.mochibackend.model.SessionStatus;
 import com.mochi.mochibackend.model.StudySession;
 import com.mochi.mochibackend.pet.entity.Pet;
 import com.mochi.mochibackend.pet.service.RewardService;
+import com.mochi.mochibackend.exception.CoStudyRoomNotFoundException;
+import com.mochi.mochibackend.exception.NotRoomHostException;
+import com.mochi.mochibackend.repository.CoStudyRoomRepository;
 import com.mochi.mochibackend.repository.StudySessionRepository;
 import com.mochi.mochibackend.task.service.TaskService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,9 +26,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * All study-session lifecycle logic. The server is authoritative:
@@ -43,6 +52,7 @@ import java.util.Optional;
  *       returns the already-final session instead of erroring.</li>
  * </ul>
  */
+
 @Service
 public class StudySessionService {
 
@@ -50,6 +60,8 @@ public class StudySessionService {
             EnumSet.of(SessionStatus.RUNNING, SessionStatus.PAUSED);
 
     private final StudySessionRepository studySessionRepository;
+    private final com.mochi.mochibackend.repository.FocusBatchRepository focusBatchRepository;
+    private final CoStudyRoomRepository coStudyRoomRepository;
     private final Clock clock;
     private final RewardService rewardService;
     private final DailyGoalService dailyGoalService;
@@ -57,12 +69,16 @@ public class StudySessionService {
     private final AchievementService achievementService;
 
     public StudySessionService(StudySessionRepository studySessionRepository,
+                               com.mochi.mochibackend.repository.FocusBatchRepository focusBatchRepository,
+                               CoStudyRoomRepository coStudyRoomRepository,
                                Clock clock,
                                RewardService rewardService,
                                DailyGoalService dailyGoalService,
                                TaskService taskService,
                                AchievementService achievementService) {
         this.studySessionRepository = studySessionRepository;
+        this.focusBatchRepository = focusBatchRepository;
+        this.coStudyRoomRepository = coStudyRoomRepository;
         this.clock = clock;
         this.rewardService = rewardService;
         this.dailyGoalService = dailyGoalService;
@@ -99,6 +115,7 @@ public class StudySessionService {
         StudySession session = new StudySession();
         session.setUserUid(userUid);
         session.setTaskId(request.getTaskId());
+        session.setRoomId(request.getRoomId());
         session.setPlannedDurationSeconds(plannedSeconds);
         session.setStatus(SessionStatus.RUNNING);
         session.setActiveMarker(Boolean.TRUE);
@@ -187,7 +204,8 @@ public class StudySessionService {
         StudySession saved = studySessionRepository.save(session);
 
         // Pet rewards only ever fire from this one real completion path.
-        Pet rewardedPet = rewardService.applyStudySessionCompletionReward(userUid, saved.getAccumulatedStudySeconds());
+        Pet rewardedPet = rewardService.applyStudySessionCompletionReward(
+                userUid, saved.getAccumulatedStudySeconds(), saved.getRoomId() != null);
 
         // Daily-goal progress and task auto-completion only count a
         // session the same way the sprint defines "valid" study time —
@@ -243,6 +261,44 @@ public class StudySessionService {
         return studySessionRepository.save(session);
     }
 
+    /**
+     * Study Rooms "all must finish" policy violation. Bulk-stops every
+     * still-active session in the room at once, so no one who was still
+     * connected keeps accumulating study time toward a reward the room
+     * has already forfeited. Reuses {@link #stop}'s finalize path via
+     * the same {@code finalize(..., SessionStatus.STOPPED, ...)} call —
+     * STOPPED sessions never reach {@link #complete}, so this can never
+     * grant a reward no matter what any individual participant's own
+     * focus data looked like. Deliberately bypasses per-user ownership
+     * ({@link #requireOwnedSession}) since this is the one legitimate
+     * case in this service where one user's action finalizes another
+     * user's session — authorization instead comes entirely from the
+     * host check below, the same {@link CoStudyRoomRepository} pattern
+     * {@code RoomModerationService} already uses for remove/mute.
+     * Idempotent for the same reason {@link #stop} already is: any
+     * session already COMPLETED or STOPPED by the time this runs (e.g.
+     * a duplicate violation report racing a normal finish) is simply
+     * skipped, not re-finalized or errored on.
+     */
+    @Transactional
+    public List<StudySession> voidRoomSessions(String roomId, String callerUid) {
+        String hostUserId = coStudyRoomRepository.findHostUserId(roomId)
+                .orElseThrow(() -> new CoStudyRoomNotFoundException("Room not found: " + roomId));
+        if (!hostUserId.equals(callerUid)) {
+            throw new NotRoomHostException("Only the room's host can void the room's sessions.");
+        }
+
+        Instant now = clock.instant();
+        List<StudySession> active = studySessionRepository.findAllByRoomIdAndStatusIn(roomId, ACTIVE_STATUSES);
+
+        for (StudySession session : active) {
+            commitRunningTime(session, now);
+            finalize(session, SessionStatus.STOPPED, now);
+        }
+
+        return studySessionRepository.saveAll(active);
+    }
+
     @Transactional(readOnly = true)
     public Optional<StudySession> findActive(String userUid) {
         return studySessionRepository.findFirstByUserUidAndStatusIn(userUid, ACTIVE_STATUSES);
@@ -253,9 +309,85 @@ public class StudySessionService {
         return requireOwnedSession(userUid, sessionId);
     }
 
+    /**
+     * Session focus timeline graph — one point per recorded focus
+     * batch, oldest first. Same ownership guard as every other
+     * single-session lookup here; a session's raw focus history is
+     * exactly as private as the session itself.
+     */
+    @Transactional(readOnly = true)
+    public List<com.mochi.mochibackend.model.FocusBatch> getFocusTimeline(String userUid, Long sessionId) {
+        requireOwnedSession(userUid, sessionId);
+        return focusBatchRepository.findAllByStudySessionIdOrderByWindowStartedAtAsc(sessionId);
+    }
+
     @Transactional(readOnly = true)
     public List<StudySession> findAllForUser(String userUid) {
         return studySessionRepository.findAllByUserUidOrderByCreatedAtDesc(userUid);
+    }
+
+    /**
+     * Every session ever linked to a co-study room, in join order —
+     * Study Rooms Phase 2. Deliberately not ownership-scoped like
+     * {@link #requireOwnedSession}: a room summary is inherently
+     * multi-user, the same way the room's own Firestore participant
+     * list and chat already are to every member. The controller layer
+     * doesn't restrict this to current room members either, matching
+     * the room id itself being an unguessable Firestore-generated
+     * token rather than a guessable/enumerable value.
+     */
+    @Transactional(readOnly = true)
+    public List<StudySession> findAllForRoom(String roomId) {
+        return studySessionRepository.findAllByRoomIdOrderByCreatedAtAsc(roomId);
+    }
+
+    /**
+     * Personal Study Rooms analytics — Phase 5 (roadmap §6). Reads only
+     * this user's own room-linked sessions; there's no cross-user
+     * aggregation here (that would need an admin role this codebase
+     * doesn't have — see RoomAnalyticsResponse's javadoc). Every session
+     * counts toward totals regardless of status: a stopped-early session
+     * still represents real study time the user gets credit for having
+     * shown up, same as {@link #findAllForUser} makes no status
+     * distinction either.
+     */
+    @Transactional(readOnly = true)
+    public RoomAnalyticsResponse getRoomAnalytics(String userUid) {
+        List<StudySession> sessions =
+                studySessionRepository.findAllByUserUidAndRoomIdIsNotNullOrderByCreatedAtDesc(userUid);
+
+        if (sessions.isEmpty()) {
+            return new RoomAnalyticsResponse(0, 0L, 0, 0.0, 0, List.of());
+        }
+
+        long totalSeconds = sessions.stream().mapToLong(StudySession::getAccumulatedStudySeconds).sum();
+        long distinctRooms = sessions.stream().map(StudySession::getRoomId).distinct().count();
+        double averageMinutes = (totalSeconds / 60.0) / sessions.size();
+
+        ZoneOffset utc = ZoneOffset.UTC;
+        Map<LocalDate, Long> secondsByDay = new TreeMap<>();
+        for (StudySession session : sessions) {
+            LocalDate day = session.getCreatedAt().atZone(utc).toLocalDate();
+            secondsByDay.merge(day, session.getAccumulatedStudySeconds(), Long::sum);
+        }
+
+        LocalDate cutoff = LocalDate.now(clock.withZone(utc)).minusDays(30);
+        List<RoomAnalyticsResponse.DailyRoomMinutes> recentDaily = secondsByDay.entrySet().stream()
+                .filter(entry -> !entry.getKey().isBefore(cutoff))
+                .map(entry -> new RoomAnalyticsResponse.DailyRoomMinutes(
+                        entry.getKey().toString(),
+                        entry.getValue() / 60
+                ))
+                .collect(Collectors.toList());
+
+        return new RoomAnalyticsResponse(
+                sessions.size(),
+                totalSeconds,
+                (int) distinctRooms,
+                averageMinutes,
+                secondsByDay.size(),
+                recentDaily
+        );
     }
 
     // ------------------------------------------------------------------
@@ -291,7 +423,9 @@ public class StudySessionService {
                 session.getFocusedSeconds(),
                 session.getDistractedSeconds(),
                 session.getNoFaceSeconds(),
-                session.getMultipleFaceSeconds());
+                session.getMultipleFaceSeconds(),
+                session.getPhoneSeconds(),
+                session.getDrowsySeconds());
 
         session.setCompletionRatio(ratio);
         session.setFocusScore(score);

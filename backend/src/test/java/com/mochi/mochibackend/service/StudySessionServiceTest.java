@@ -1,6 +1,7 @@
 package com.mochi.mochibackend.service;
 
 import com.mochi.mochibackend.dailygoal.service.DailyGoalService;
+import com.mochi.mochibackend.dto.RoomAnalyticsResponse;
 import com.mochi.mochibackend.dto.StartSessionRequest;
 import com.mochi.mochibackend.exception.ActiveSessionExistsException;
 import com.mochi.mochibackend.exception.InvalidSessionRequestException;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -49,6 +51,12 @@ class StudySessionServiceTest {
     private StudySessionRepository repository;
 
     @Mock
+    private com.mochi.mochibackend.repository.FocusBatchRepository focusBatchRepository;
+
+    @Mock
+    private com.mochi.mochibackend.repository.CoStudyRoomRepository coStudyRoomRepository;
+
+    @Mock
     private RewardService rewardService;
 
     @Mock
@@ -66,7 +74,7 @@ class StudySessionServiceTest {
     @BeforeEach
     void setUp() {
         clock = new MutableClock(NOW);
-        service = new StudySessionService(repository, clock, rewardService, dailyGoalService, taskService, achievementService);
+        service = new StudySessionService(repository, focusBatchRepository, coStudyRoomRepository, clock, rewardService, dailyGoalService, taskService, achievementService);
 
         // Most tests persist by returning the same instance.
         lenient().when(repository.save(any(StudySession.class)))
@@ -199,7 +207,99 @@ class StudySessionServiceTest {
         assertThat(done.getSessionClassification()).isEqualTo(SessionClassification.VALID);
         assertThat(done.getActiveMarker()).isNull();
         assertThat(done.getEndedAt()).isEqualTo(clock.instant());
-        verify(rewardService).applyStudySessionCompletionReward(UID, 1500L);
+        verify(rewardService).applyStudySessionCompletionReward(UID, 1500L, false);
+    }
+
+    @Test
+    void completionOfRoomLinkedSessionPassesRoomBonusFlag() {
+        StudySession session = runningSession(1500, 0);
+        session.setRoomId("room-abc");
+        session.setFocusedSeconds(1200);
+        session.setDistractedSeconds(100);
+        stubOwned(session);
+
+        clock.advance(Duration.ofSeconds(1500));
+        service.complete(UID, 1L);
+
+        // isRoomSession=true is the only thing that differs from a solo
+        // completion — RewardService itself (RewardServiceTest) is
+        // where the actual 1.5x multiplier math is verified; this test
+        // only proves StudySessionService correctly detects "this
+        // session has a roomId" and passes that through.
+        verify(rewardService).applyStudySessionCompletionReward(UID, 1500L, true);
+    }
+
+    // ---------- voidRoomSessions ("all must finish" policy) ----------
+
+    @Test
+    void voidRoomSessionsStopsEveryActiveSessionAndGrantsNoReward() {
+        StudySession a = runningSession(1500, 300);
+        a.setId(1L);
+        a.setRoomId("room-xyz");
+        StudySession b = runningSession(1500, 600);
+        b.setId(2L);
+        b.setUserUid("user-def");
+        b.setRoomId("room-xyz");
+
+        when(coStudyRoomRepository.findHostUserId("room-xyz")).thenReturn(Optional.of(UID));
+        when(repository.findAllByRoomIdAndStatusIn(eq("room-xyz"), anyCollection()))
+                .thenReturn(java.util.List.of(a, b));
+        when(repository.saveAll(anyCollection())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var voided = service.voidRoomSessions("room-xyz", UID);
+
+        assertThat(voided).hasSize(2);
+        assertThat(voided).allSatisfy(session -> {
+            assertThat(session.getStatus()).isEqualTo(SessionStatus.STOPPED);
+            assertThat(session.getActiveMarker()).isNull();
+        });
+        // stop() (and this, which shares its finalize path) never calls
+        // the reward pipeline — only complete() does, and STOPPED
+        // sessions can never reach complete() afterwards either
+        // (InvalidSessionStateException, see stopRejectsCompletedSession-style
+        // guards above).
+        verify(rewardService, never()).applyStudySessionCompletionReward(anyString(), anyLong(), anyBoolean());
+    }
+
+    @Test
+    void voidRoomSessionsRejectsNonHostCaller() {
+        when(coStudyRoomRepository.findHostUserId("room-xyz")).thenReturn(Optional.of("someone-else"));
+
+        assertThatThrownBy(() -> service.voidRoomSessions("room-xyz", UID))
+                .isInstanceOf(com.mochi.mochibackend.exception.NotRoomHostException.class);
+    }
+
+    @Test
+    void voidRoomSessionsRejectsUnknownRoom() {
+        when(coStudyRoomRepository.findHostUserId("ghost-room")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.voidRoomSessions("ghost-room", UID))
+                .isInstanceOf(com.mochi.mochibackend.exception.CoStudyRoomNotFoundException.class);
+    }
+
+    // ---------- getFocusTimeline ----------
+
+    @Test
+    void getFocusTimelineReturnsOwnedSessionsBatchesInOrder() {
+        StudySession session = runningSession(1500, 300);
+        stubOwned(session);
+        var batches = java.util.List.<com.mochi.mochibackend.model.FocusBatch>of(
+                new com.mochi.mochibackend.model.FocusBatch(), new com.mochi.mochibackend.model.FocusBatch());
+        when(focusBatchRepository.findAllByStudySessionIdOrderByWindowStartedAtAsc(1L)).thenReturn(batches);
+
+        var result = service.getFocusTimeline(UID, 1L);
+
+        assertThat(result).isSameAs(batches);
+    }
+
+    @Test
+    void getFocusTimelineRejectsSessionOwnedByAnotherUser() {
+        // requireOwnedSession calls findByIdAndUserUid(id, UID) — left
+        // unstubbed here (as if session 1 belongs to someone else), a
+        // Mockito mock returns Optional.empty() by default, which is
+        // exactly the "not found for this user" case being tested.
+        assertThatThrownBy(() -> service.getFocusTimeline(UID, 1L))
+                .isInstanceOf(com.mochi.mochibackend.exception.SessionNotFoundException.class);
     }
 
     @Test
@@ -244,7 +344,7 @@ class StudySessionServiceTest {
 
         assertThat(result.getStatus()).isEqualTo(SessionStatus.COMPLETED);
         verify(repository, never()).save(any());
-        verify(rewardService, never()).applyStudySessionCompletionReward(anyString(), anyLong());
+        verify(rewardService, never()).applyStudySessionCompletionReward(anyString(), anyLong(), anyBoolean());
         verify(taskService, never()).complete(anyString(), anyLong());
     }
 
@@ -311,6 +411,40 @@ class StudySessionServiceTest {
                 .isInstanceOf(SessionNotFoundException.class);
     }
 
+    // ---------- Study Rooms Phase 5: room analytics ----------
+
+    @Test
+    void roomAnalyticsAggregatesAcrossRoomLinkedSessionsOnly() {
+        StudySession roomSessionA = roomLinkedSession("room-1", 1200, NOW.minus(Duration.ofDays(1)));
+        StudySession roomSessionB = roomLinkedSession("room-1", 900, NOW.minus(Duration.ofDays(1)));
+        StudySession roomSessionC = roomLinkedSession("room-2", 1800, NOW.minus(Duration.ofDays(3)));
+        when(repository.findAllByUserUidAndRoomIdIsNotNullOrderByCreatedAtDesc(UID))
+                .thenReturn(java.util.List.of(roomSessionC, roomSessionA, roomSessionB));
+
+        RoomAnalyticsResponse response = service.getRoomAnalytics(UID);
+
+        assertThat(response.getTotalRoomSessions()).isEqualTo(3);
+        assertThat(response.getTotalRoomStudySeconds()).isEqualTo(1200 + 900 + 1800);
+        assertThat(response.getDistinctRoomsJoined()).isEqualTo(2);
+        assertThat(response.getDistinctActiveDays()).isEqualTo(2);
+        // (1200+900)/60 + 1800/60 = 35 + 30 = 65 total minutes over 3 sessions
+        assertThat(response.getAverageSessionMinutes()).isCloseTo(65.0 / 3, org.assertj.core.data.Offset.offset(0.01));
+    }
+
+    @Test
+    void roomAnalyticsIsEmptyWhenUserHasNoRoomLinkedSessions() {
+        when(repository.findAllByUserUidAndRoomIdIsNotNullOrderByCreatedAtDesc(UID))
+                .thenReturn(java.util.List.of());
+
+        RoomAnalyticsResponse response = service.getRoomAnalytics(UID);
+
+        assertThat(response.getTotalRoomSessions()).isZero();
+        assertThat(response.getTotalRoomStudySeconds()).isZero();
+        assertThat(response.getDistinctRoomsJoined()).isZero();
+        assertThat(response.getAverageSessionMinutes()).isZero();
+        assertThat(response.getRecentDailyMinutes()).isEmpty();
+    }
+
     // ---------- helpers ----------
 
     private void stubOwned(StudySession session) {
@@ -338,6 +472,17 @@ class StudySessionServiceTest {
         session.setActiveMarker(Boolean.TRUE);
         session.setStartedAt(NOW.minusSeconds(accumulated));
         session.setLastResumedAt(NOW);
+        return session;
+    }
+
+    /** A finalized, room-linked session for Phase 5 analytics tests — createdAt is set explicitly since @CreationTimestamp doesn't fire outside a real persistence context. */
+    private StudySession roomLinkedSession(String roomId, long accumulatedSeconds, Instant createdAt) {
+        StudySession session = new StudySession();
+        session.setUserUid(UID);
+        session.setRoomId(roomId);
+        session.setAccumulatedStudySeconds(accumulatedSeconds);
+        session.setStatus(SessionStatus.COMPLETED);
+        session.setCreatedAt(createdAt);
         return session;
     }
 

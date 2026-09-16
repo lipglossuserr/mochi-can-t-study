@@ -71,6 +71,16 @@ public class StudySession {
     @Column(name = "task_id")
     private Long taskId;
 
+    /**
+     * Optional Firestore co-study room id (rooms/{roomId}) this session
+     * was started from. Sprint: Study Rooms Phase 2. Plain String, not a
+     * relation — the room lives in Firestore, not this database, same
+     * cross-store shape as {@code UserProfile}. Null for every solo
+     * session, which remains the overwhelming majority.
+     */
+    @Column(name = "room_id", length = 64)
+    private String roomId;
+
     @Column(name = "planned_duration_seconds", nullable = false)
     private int plannedDurationSeconds;
 
@@ -115,6 +125,14 @@ public class StudySession {
 
     @Column(name = "camera_unavailable_seconds", nullable = false)
     private long cameraUnavailableSeconds;
+
+    /** Aggregated from FocusBatch.phoneMilliseconds — hand-near-face sustained (phone pickup heuristic). */
+    @Column(name = "phone_seconds", nullable = false)
+    private long phoneSeconds;
+
+    /** Aggregated from FocusBatch.drowsyMilliseconds — eyes-closed sustained (drowsy/asleep heuristic). */
+    @Column(name = "drowsy_seconds", nullable = false)
+    private long drowsySeconds;
 
     /** 0-100, computed at finalization; null until then or if unusable. */
     @Column(name = "focus_score")

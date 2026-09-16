@@ -75,6 +75,8 @@ public class FocusAggregationService {
         batch.setNoFaceMilliseconds(request.getNoFaceMilliseconds());
         batch.setMultipleFaceMilliseconds(request.getMultipleFaceMilliseconds());
         batch.setCameraUnavailableMilliseconds(request.getCameraUnavailableMilliseconds());
+        batch.setPhoneMilliseconds(request.getPhoneMilliseconds());
+        batch.setDrowsyMilliseconds(request.getDrowsyMilliseconds());
 
         try {
             focusBatchRepository.saveAndFlush(batch);
@@ -95,6 +97,10 @@ public class FocusAggregationService {
                 + millisToSeconds(request.getMultipleFaceMilliseconds()));
         session.setCameraUnavailableSeconds(session.getCameraUnavailableSeconds()
                 + millisToSeconds(request.getCameraUnavailableMilliseconds()));
+        session.setPhoneSeconds(session.getPhoneSeconds()
+                + millisToSeconds(request.getPhoneMilliseconds()));
+        session.setDrowsySeconds(session.getDrowsySeconds()
+                + millisToSeconds(request.getDrowsyMilliseconds()));
 
         studySessionRepository.save(session);
 
@@ -124,7 +130,9 @@ public class FocusAggregationService {
                 + session.getDistractedSeconds()
                 + session.getNoFaceSeconds()
                 + session.getMultipleFaceSeconds()
-                + session.getCameraUnavailableSeconds()) * 1000;
+                + session.getCameraUnavailableSeconds()
+                + session.getPhoneSeconds()
+                + session.getDrowsySeconds()) * 1000;
 
         long newTotal = alreadyRecordedMillis + totalReportedMillis(request);
 
@@ -139,7 +147,9 @@ public class FocusAggregationService {
                 + request.getDistractedMilliseconds()
                 + request.getNoFaceMilliseconds()
                 + request.getMultipleFaceMilliseconds()
-                + request.getCameraUnavailableMilliseconds();
+                + request.getCameraUnavailableMilliseconds()
+                + request.getPhoneMilliseconds()
+                + request.getDrowsyMilliseconds();
     }
 
     private long millisToSeconds(long millis) {

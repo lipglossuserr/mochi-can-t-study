@@ -74,6 +74,14 @@ public class FocusBatch {
     @Column(name = "camera_unavailable_millis", nullable = false)
     private long cameraUnavailableMilliseconds;
 
+    /** Hand detected near/overlapping the face region, sustained — phone pickup heuristic. */
+    @Column(name = "phone_millis", nullable = false)
+    private long phoneMilliseconds;
+
+    /** Sustained eyes-closed blendshape score above threshold — drowsy/asleep-at-desk heuristic. */
+    @Column(name = "drowsy_millis", nullable = false)
+    private long drowsyMilliseconds;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
