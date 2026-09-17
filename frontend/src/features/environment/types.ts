@@ -28,6 +28,19 @@
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
 
 /**
+ * A coarse weather reading, mapped down from Open-Meteo's WMO weather
+ * codes (see `react/useWeatherSync.ts`). 'unknown' is the permanent
+ * default whenever weather sync is off, hasn't resolved yet, or the
+ * fetch failed — and 'unknown' behaves EXACTLY like 'clear' in
+ * `compute()` below. That equivalence is deliberate: nothing about the
+ * room's baseline ambience (the whole `TimeOfDay`/lighting system) is
+ * allowed to depend on weather ever loading successfully. Weather is
+ * purely an optional extra layer on top of a system that already works
+ * completely on its own.
+ */
+export type WeatherCondition = 'unknown' | 'clear' | 'cloudy' | 'rainy' | 'stormy' | 'snowy'
+
+/**
  * How lively Mochi's presence is right now, coarsened into three
  * bands. This is the ENTIRE surface the character side of the app is
  * allowed to push into the environment — no state names, no behavior
@@ -69,10 +82,14 @@ export interface EnvironmentSnapshot {
     motionLevel: number
     /** Mirrors the OS/browser preference so JS-driven consumers (not just CSS) can skip work entirely. */
     reducedMotion: boolean
+    /** See `WeatherCondition`. 'unknown' unless the user has explicitly opted into weather sync (see `react/useWeatherSync.ts`) and it's successfully resolved at least once. */
+    weather: WeatherCondition
 }
 
 /** The environment engine's public write surface. */
 export interface EnvironmentActions {
     /** The one thing the rest of the app is allowed to tell the environment. */
     setMochiActivity: (level: MochiActivityLevel) => void
+    /** Pushed by `useWeatherSync` once a fetch resolves — see that hook for the opt-in gating (this engine never fetches or asks for geolocation permission itself). */
+    setWeather: (weather: WeatherCondition) => void
 }

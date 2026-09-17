@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/auth/AuthContext'
 import { fetchCurrentUser } from '@/services/userService'
 import { NAV_ITEMS } from '@/config/navigation'
@@ -40,22 +41,32 @@ function TopBar() {
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-1 pb-6">
       <div>
-        <h1 className="font-display text-xl font-semibold text-ink sm:text-2xl">
-          {currentRoom ? `${currentRoom.emoji} ${currentRoom.label}` : 'Mochi'}
-        </h1>
+        <AnimatePresence mode="wait">
+          <motion.h1
+            key={currentRoom?.to ?? 'mochi'}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="font-display text-xl font-semibold text-ink sm:text-2xl"
+          >
+            {currentRoom ? `${currentRoom.emoji} ${currentRoom.label}` : 'Mochi'}
+          </motion.h1>
+        </AnimatePresence>
         {username && (
           <p className="mt-0.5 font-body text-sm text-ink/50">Welcome back, {username} ♡</p>
         )}
       </div>
 
-      <button
+      <motion.button
         type="button"
         onClick={logout}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         aria-label="Logout"
         className="shrink-0 rounded-full bg-white/70 px-4 py-2 font-body text-sm font-semibold text-taro shadow transition-colors hover:bg-blush-light lg:hidden"
       >
         Logout
-      </button>
+      </motion.button>
     </header>
   )
 }

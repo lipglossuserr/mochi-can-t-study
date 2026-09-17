@@ -32,6 +32,7 @@ public class PetResponse {
     private String state;
     private int currentStreak;
     private int longestStreak;
+    private String equippedSkin;
     private Instant createdAt;
     private Instant updatedAt;
 }

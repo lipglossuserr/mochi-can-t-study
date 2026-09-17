@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { currentUser, loading } = useAuth()
+  const location = useLocation()
 
   // Never flash the login screen while Firebase is still resolving the
   // session on first load.
@@ -16,7 +17,11 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!currentUser) {
-    return <Navigate to="/login" replace />
+    // Carry the page someone was actually trying to reach (path +
+    // query string, e.g. a Study Room invite link's ?room=xyz) through
+    // the login detour — see utils/authRedirect.ts for where this gets
+    // read back out.
+    return <Navigate to="/login" replace state={{ from: location }} />
   }
 
   return <>{children}</>

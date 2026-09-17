@@ -38,6 +38,25 @@ export interface UseDraggableSpriteOptions {
     onDrop: (info: DraggableSpriteDropInfo) => void
     /** When true, pointerdown does nothing — e.g. while a previous drop's API call is still in flight. */
     disabled?: boolean
+    /**
+     * Fired on every pointer move while dragging, with the raw
+     * viewport (client) coordinates — same coordinates `onDrop`
+     * receives. Optional: added for Mochi's "chase the toy" reaction
+     * (a caller converts these into the room's percentage coordinate
+     * space and feeds them to the character engine's `moveTo`), but
+     * nothing about the pick-up/follow/drop-test mechanics above
+     * depends on this being wired up.
+     */
+    onDragMove?: (clientX: number, clientY: number) => void
+    /**
+     * Fired unconditionally the instant ANY drag ends — hit, miss, OR
+     * cancelled (unlike `onDrop`, which skips cancelled gestures).
+     * Exists specifically so a caller doing something continuous
+     * during the drag (like the chase reaction `onDragMove` enables)
+     * has one reliable place to stop it, regardless of how the drag
+     * ended.
+     */
+    onDragEnd?: () => void
 }
 
 export interface UseDraggableSpriteResult {
@@ -85,6 +104,8 @@ export function useDraggableSprite({
     dropZoneRef,
     onDrop,
     disabled = false,
+    onDragMove,
+    onDragEnd,
 }: UseDraggableSpriteOptions): UseDraggableSpriteResult {
     const [isDragging, setIsDragging] = useState(false)
     const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -105,13 +126,17 @@ export function useDraggableSprite({
         [disabled],
     )
 
-    const onPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-        if (!draggingRef.current || !startPointRef.current) return
-        setOffset({
-            x: event.clientX - startPointRef.current.x,
-            y: event.clientY - startPointRef.current.y,
-        })
-    }, [])
+    const onPointerMove = useCallback(
+        (event: ReactPointerEvent<HTMLElement>) => {
+            if (!draggingRef.current || !startPointRef.current) return
+            setOffset({
+                x: event.clientX - startPointRef.current.x,
+                y: event.clientY - startPointRef.current.y,
+            })
+            onDragMove?.(event.clientX, event.clientY)
+        },
+        [onDragMove],
+    )
 
     const endDrag = useCallback(
         (event: ReactPointerEvent<HTMLElement>, { fireDrop }: { fireDrop: boolean }) => {
@@ -125,6 +150,7 @@ export function useDraggableSprite({
             draggingRef.current = false
             setIsDragging(false)
             setOffset({ x: 0, y: 0 }) // triggers the snap-back transition, since isDragging just flipped false
+            onDragEnd?.()
 
             if (fireDrop) {
                 const dropZone = dropZoneRef.current
@@ -154,7 +180,7 @@ export function useDraggableSprite({
 
             startPointRef.current = null
         },
-        [dropZoneRef, onDrop],
+        [dropZoneRef, onDrop, onDragEnd],
     )
 
     const onPointerUp = useCallback(

@@ -55,19 +55,7 @@ public final class RewardPolicy {
 
     /** Flat mood increase on any completed task, any priority. */
     public static final int TASK_MOOD_REWARD = 3;
-    // ---------- Flashcard deck completion rewards ----------
-    // Scaled by card count, same per-unit-of-effort idea as the
-    // per-minute study session reward, but reviewing a deck is a
-    // quicker win than a full timed study session — see MIN_CARDS /
-    // MAX_CARDS in FlashcardDeckService (5-40) for the range this
-    // ends up scaling across.
 
-    public static final int FLASHCARD_XP_PER_CARD = 2;
-
-    public static final int FLASHCARD_COINS_PER_CARD = 1;
-
-    /** Flat mood increase on any completed flashcard deck, regardless of size. */
-    public static final int FLASHCARD_MOOD_REWARD = 3;
     // ---------- Stat bounds ----------
 
     public static final int MIN_STAT = 0;
@@ -94,4 +82,17 @@ public final class RewardPolicy {
 
     /** Minimum level for the ADULT stage. */
     public static final int ADULT_MIN_LEVEL = 15;
+
+    // ---------- Flashcard deck completion rewards ----------
+    // Scales with card count, same reasoning as study-session reward
+    // scaling with minutes — a 30-card deck represents more study than
+    // a 10-card one. 10 cards -> 20 XP / 5 coins, matching the numbers
+    // in the feature spec exactly.
+
+    public static final int FLASHCARD_XP_PER_CARD = 2;
+    public static final int FLASHCARD_COINS_DIVISOR = 2;
+    public static final int FLASHCARD_MIN_COINS = 1;
+
+    /** Flat mood increase on a completed deck, any card count. */
+    public static final int FLASHCARD_MOOD_REWARD = 4;
 }

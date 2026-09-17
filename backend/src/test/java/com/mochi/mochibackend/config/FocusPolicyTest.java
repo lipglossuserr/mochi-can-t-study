@@ -11,12 +11,25 @@ class FocusPolicyTest {
     @Test
     void focusScoreIsFocusedOverUsableTime() {
         // 90 focused / 100 usable = 90
-        assertThat(FocusPolicy.computeFocusScore(90, 5, 5, 0)).isEqualTo(90);
+        assertThat(FocusPolicy.computeFocusScore(90, 5, 5, 0, 0, 0)).isEqualTo(90);
     }
 
     @Test
     void zeroUsableTimeYieldsNullScoreInsteadOfDivisionByZero() {
-        assertThat(FocusPolicy.computeFocusScore(0, 0, 0, 0)).isNull();
+        assertThat(FocusPolicy.computeFocusScore(0, 0, 0, 0, 0, 0)).isNull();
+    }
+
+    @Test
+    void phoneTimeCountsAsUsableButNotFocused() {
+        // 50 focused / (50 focused + 50 phone) = 50 — phone pulls the
+        // score down exactly like distracted would, not like
+        // camera-unavailable (which isn't usable time at all).
+        assertThat(FocusPolicy.computeFocusScore(50, 0, 0, 0, 50, 0)).isEqualTo(50);
+    }
+
+    @Test
+    void drowsyTimeCountsAsUsableButNotFocused() {
+        assertThat(FocusPolicy.computeFocusScore(50, 0, 0, 0, 0, 50)).isEqualTo(50);
     }
 
     @Test

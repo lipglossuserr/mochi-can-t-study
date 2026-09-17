@@ -4,6 +4,7 @@ import type {
     EnvironmentSnapshot,
     MochiActivityLevel,
     TimeOfDay,
+    WeatherCondition,
 } from './types'
 import { prefersReducedMotion } from './utils/reducedMotion'
 
@@ -51,6 +52,26 @@ const ACTIVITY_MULTIPLIER: Record<MochiActivityLevel, number> = {
     calm: 0.45,
     neutral: 1,
     lively: 1.35,
+}
+
+/**
+ * Weather's own multiplicative adjustment on top of the time-of-day
+ * curves — never a replacement for them. 'unknown'/'clear' are both
+ * `1` across the board on purpose: a room with weather sync off (the
+ * default) or a fetch that hasn't resolved yet must render byte-for-
+ * byte identically to how this engine behaved before weather existed.
+ * Values are deliberately gentle multipliers (0.7–1.15), not new
+ * curves of their own — this stays "a mood the room is already in
+ * gets a little moodier," never a second independent lighting system
+ * fighting the time-of-day one for control.
+ */
+const WEATHER_ADJUSTMENT: Record<WeatherCondition, { brightness: number; warmth: number; motion: number }> = {
+    unknown: { brightness: 1, warmth: 1, motion: 1 },
+    clear: { brightness: 1, warmth: 1, motion: 1 },
+    cloudy: { brightness: 0.85, warmth: 0.92, motion: 0.95 },
+    rainy: { brightness: 0.7, warmth: 0.85, motion: 0.85 }, // cozier, a touch calmer — see AmbientLayer for the actual rain streaks
+    stormy: { brightness: 0.55, warmth: 0.8, motion: 1.15 }, // darkest and the one condition that's slightly MORE restless, not less
+    snowy: { brightness: 0.8, warmth: 0.72, motion: 0.7 }, // coolest light, hushed motion
 }
 
 /** A handful of (hour, value) anchors across the day; sampled with smooth cosine blending in between. */
@@ -140,6 +161,7 @@ export class EnvironmentEngine {
     private listeners = new Set<() => void>()
     private snapshot: EnvironmentSnapshot
     private activity: MochiActivityLevel = 'neutral'
+    private weather: WeatherCondition = 'unknown'
     private reduced: boolean
     private timer: ReturnType<typeof setInterval> | undefined
     private mediaQuery: MediaQueryList | undefined
@@ -175,6 +197,11 @@ export class EnvironmentEngine {
             this.activity = level
             this.publish(this.compute())
         },
+        setWeather: (weather: WeatherCondition) => {
+            if (weather === this.weather) return
+            this.weather = weather
+            this.publish(this.compute())
+        },
     }
 
     dispose(): void {
@@ -187,21 +214,28 @@ export class EnvironmentEngine {
 
     private compute(): EnvironmentSnapshot {
         const hour = decimalHourNow()
+        const adjustment = WEATHER_ADJUSTMENT[this.weather]
         const lighting: EnvironmentLighting = {
-            warmth: sampleCurve(WARMTH_CURVE, hour),
-            brightness: sampleCurve(BRIGHTNESS_CURVE, hour),
-            angleDeg: sampleCurve(ANGLE_CURVE, hour),
+            warmth: sampleCurve(WARMTH_CURVE, hour) * adjustment.warmth,
+            brightness: sampleCurve(BRIGHTNESS_CURVE, hour) * adjustment.brightness,
+            angleDeg: sampleCurve(ANGLE_CURVE, hour), // weather doesn't move the sun — only how much of it gets through
         }
         // Quieter at night/deep evening, a touch livelier at brightness peak —
         // the room's OWN baseline restlessness, before Mochi's state adjusts it.
-        const baseMotion = 0.25 + lighting.brightness * 0.55
-        const motionLevel = this.reduced ? 0 : Math.min(1, baseMotion * ACTIVITY_MULTIPLIER[this.activity])
+        // Uses the UN-adjusted brightness curve for this baseline (weather
+        // dimming the light shouldn't, by itself, quiet the room down twice —
+        // that's what WEATHER_ADJUSTMENT.motion is for, applied once, below).
+        const baseMotion = 0.25 + sampleCurve(BRIGHTNESS_CURVE, hour) * 0.55
+        const motionLevel = this.reduced
+            ? 0
+            : Math.min(1, baseMotion * ACTIVITY_MULTIPLIER[this.activity] * adjustment.motion)
 
         return {
             timeOfDay: labelFor(hour),
             lighting,
             motionLevel,
             reducedMotion: this.reduced,
+            weather: this.weather,
         }
     }
 
@@ -210,6 +244,7 @@ export class EnvironmentEngine {
         const unchanged =
             prev.timeOfDay === next.timeOfDay &&
             prev.reducedMotion === next.reducedMotion &&
+            prev.weather === next.weather &&
             nearlyEqual(prev.lighting.warmth, next.lighting.warmth) &&
             nearlyEqual(prev.lighting.brightness, next.lighting.brightness) &&
             nearlyEqual(prev.lighting.angleDeg, next.lighting.angleDeg) &&

@@ -47,9 +47,21 @@ class RewardServiceTest {
         Pet pet = starterPet();
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getXp()).isEqualTo(50); // 25 min * 2
+    }
+
+    @Test
+    void roomLinkedSessionGrantsOnePointFiveTimesXpAndCoins() {
+        Pet pet = starterPet();
+        when(petService.getPet(UID)).thenReturn(pet);
+
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 20 * 60L, true);
+
+        // 20 min * 2 xp/min * 1.5 = 60, 20 min * 1 coin/min * 1.5 = 30
+        assertThat(result.getXp()).isEqualTo(60);
+        assertThat(result.getCoins()).isEqualTo(30);
     }
 
     @Test
@@ -57,7 +69,7 @@ class RewardServiceTest {
         Pet pet = starterPet();
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 50 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 50 * 60L, false);
 
         assertThat(result.getXp()).isEqualTo(100);
     }
@@ -68,7 +80,7 @@ class RewardServiceTest {
         pet.setXp(40);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getXp()).isEqualTo(90); // 40 + 50
     }
@@ -80,7 +92,7 @@ class RewardServiceTest {
         Pet pet = starterPet();
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getCoins()).isEqualTo(25);
     }
@@ -91,7 +103,7 @@ class RewardServiceTest {
         pet.setCoins(10);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getCoins()).isEqualTo(35);
     }
@@ -105,7 +117,7 @@ class RewardServiceTest {
         pet.setBond(50);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getMood()).isEqualTo(55);
         assertThat(result.getBond()).isEqualTo(53);
@@ -117,7 +129,7 @@ class RewardServiceTest {
         pet.setMood(98);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getMood()).isEqualTo(100);
     }
@@ -128,7 +140,7 @@ class RewardServiceTest {
         pet.setBond(99);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getBond()).isEqualTo(100);
     }
@@ -142,7 +154,7 @@ class RewardServiceTest {
         when(petService.getPet(UID)).thenReturn(pet);
 
         // 25 min => +50 XP => 130 total => level 2
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getXp()).isEqualTo(130);
         assertThat(result.getLevel()).isEqualTo(2);
@@ -154,7 +166,7 @@ class RewardServiceTest {
         pet.setXp(0);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 5 * 60L); // +10 xp only
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 5 * 60L, false); // +10 xp only
 
         assertThat(result.getLevel()).isEqualTo(1);
     }
@@ -167,7 +179,7 @@ class RewardServiceTest {
         pet.setStage(PetStage.BABY);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 1 * 60L); // +2 xp => 701 => level 5
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 1 * 60L, false); // +2 xp => 701 => level 5
 
         assertThat(result.getLevel()).isEqualTo(5);
         assertThat(result.getStage()).isEqualTo(PetStage.CHILD);
@@ -179,7 +191,7 @@ class RewardServiceTest {
         pet.setXp(0);
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 5 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 5 * 60L, false);
 
         assertThat(result.getLevel()).isEqualTo(1);
         assertThat(result.getStage()).isEqualTo(PetStage.BABY);
@@ -192,7 +204,7 @@ class RewardServiceTest {
         Pet pet = starterPet();
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getState()).isEqualTo(PetState.CELEBRATING);
     }
@@ -205,7 +217,7 @@ class RewardServiceTest {
         assertThat(pet.getLastStudyDate()).isNull();
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getCurrentStreak()).isEqualTo(1);
         assertThat(result.getLongestStreak()).isEqualTo(1);
@@ -220,7 +232,7 @@ class RewardServiceTest {
         pet.setLastStudyDate(LocalDate.of(2026, 1, 14)); // yesterday, relative to FIXED_CLOCK
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getCurrentStreak()).isEqualTo(4);
         assertThat(result.getLongestStreak()).isEqualTo(4);
@@ -235,7 +247,7 @@ class RewardServiceTest {
         pet.setLastStudyDate(LocalDate.of(2026, 1, 15)); // today, relative to FIXED_CLOCK
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getCurrentStreak()).isEqualTo(3);
         assertThat(result.getLongestStreak()).isEqualTo(5);
@@ -250,7 +262,7 @@ class RewardServiceTest {
         pet.setLastStudyDate(LocalDate.of(2026, 1, 10)); // 5 days ago, gap > 1 day
         when(petService.getPet(UID)).thenReturn(pet);
 
-        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L);
+        Pet result = rewardService.applyStudySessionCompletionReward(UID, 25 * 60L, false);
 
         assertThat(result.getCurrentStreak()).isEqualTo(1);
         assertThat(result.getLongestStreak()).isEqualTo(10);

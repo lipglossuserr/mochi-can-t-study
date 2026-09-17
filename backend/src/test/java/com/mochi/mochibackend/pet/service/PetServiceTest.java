@@ -2,6 +2,8 @@ package com.mochi.mochibackend.pet.service;
 
 import com.mochi.mochibackend.exception.PetAlreadyExistsException;
 import com.mochi.mochibackend.exception.PetNotFoundException;
+import com.mochi.mochibackend.exception.SkinNotOwnedException;
+import com.mochi.mochibackend.inventory.repository.InventoryEntryRepository;
 import com.mochi.mochibackend.pet.entity.Pet;
 import com.mochi.mochibackend.pet.enums.PetSpecies;
 import com.mochi.mochibackend.pet.enums.PetStage;
@@ -33,11 +35,14 @@ class PetServiceTest {
     @Mock
     private PetRepository repository;
 
+    @Mock
+    private InventoryEntryRepository inventoryEntryRepository;
+
     private PetService service;
 
     @BeforeEach
     void setUp() {
-        service = new PetService(repository);
+        service = new PetService(repository, inventoryEntryRepository);
 
         lenient().when(repository.save(any(Pet.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -240,6 +245,49 @@ class PetServiceTest {
         when(repository.findByUserId(UID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.spendCoins(UID, 5))
+                .isInstanceOf(PetNotFoundException.class);
+    }
+
+    // ---------- equipSkin ----------
+
+    @Test
+    void equipSkinAllowsTheFreeDefaultWithoutCheckingInventory() {
+        Pet existing = starterPet();
+        when(repository.findByUserId(UID)).thenReturn(Optional.of(existing));
+
+        Pet pet = service.equipSkin(UID, "skin-orange");
+
+        assertThat(pet.getEquippedSkinItemKey()).isEqualTo("skin-orange");
+        verify(inventoryEntryRepository, never()).existsByUserIdAndItem_ItemKey(any(), any());
+    }
+
+    @Test
+    void equipSkinAllowsAnOwnedSkin() {
+        Pet existing = starterPet();
+        when(repository.findByUserId(UID)).thenReturn(Optional.of(existing));
+        when(inventoryEntryRepository.existsByUserIdAndItem_ItemKey(UID, "skin-calico")).thenReturn(true);
+
+        Pet pet = service.equipSkin(UID, "skin-calico");
+
+        assertThat(pet.getEquippedSkinItemKey()).isEqualTo("skin-calico");
+    }
+
+    @Test
+    void equipSkinRejectsASkinThatIsNotOwned() {
+        Pet existing = starterPet();
+        when(repository.findByUserId(UID)).thenReturn(Optional.of(existing));
+        when(inventoryEntryRepository.existsByUserIdAndItem_ItemKey(UID, "skin-white")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.equipSkin(UID, "skin-white"))
+                .isInstanceOf(SkinNotOwnedException.class);
+        verify(repository, never()).save(any(Pet.class));
+    }
+
+    @Test
+    void equipSkinThrowsWhenPetDoesNotExist() {
+        when(repository.findByUserId(UID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.equipSkin(UID, "skin-orange"))
                 .isInstanceOf(PetNotFoundException.class);
     }
 }

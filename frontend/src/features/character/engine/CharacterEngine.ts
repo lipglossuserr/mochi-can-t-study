@@ -152,6 +152,34 @@ const STUDY_SPEECH = {
   completionInvalid: ["That's okay — next time ♡", 'No worries, we can try again.'],
 } as const
 
+/** Shown when the posture heuristic suggests a stretch — see CharacterEvent's 'posture-nudge-suggested' doc comment. Deliberately gentle, never alarming ("you're slouching!"), since this is a low-confidence heuristic on a webcam feed, not a diagnosis. */
+const POSTURE_SPEECH = ['Stretch break? ♡', "Let's roll our shoulders back!", 'Sit up tall with me for a sec ♡']
+
+/** Shown on the 'user-tickled' event — see that CharacterEvent's doc comment. Playful, not the same register as POSTURE_SPEECH/STUDY_SPEECH — tickling is pure silliness, not encouragement. */
+const TICKLE_SPEECH = ['Hehehe, stop— okay don\'t stop ♡', 'Tehehe!', 'Eeeeee!', 'You found my ticklish spot!', 'Pfft— hehe!']
+
+/** Shown on 'user-double-tapped' — a quick, light "!" beat, not as silly as a tickle. */
+const DOUBLE_TAP_SPEECH = ['!', 'Oh!', 'Hi again ♡', 'Hehe, twice!']
+
+/** Shown on 'user-held' — calm and content, the register a settled pet gets, not an excited one. */
+const HOLD_SPEECH = ['mmm ♡', "That's nice…", '*purrs*', 'Comfy ♡']
+
+/** Shown on 'konami-unlocked' — the one line in this file allowed to be a little self-aware/meta, since finding the code IS the joke. */
+const KONAMI_SPEECH = ["You know the code?! ♡", 'No way— you found it!', "That's the secret code! ♡"]
+
+/**
+ * A fresh session started between local midnight and 4am — see the
+ * 'study-session-started' handler below. Only a CHANCE, not every
+ * time (see MIDNIGHT_SPEECH_CHANCE) — showing it on every single late
+ * session would turn a delight into nagging.
+ */
+const MIDNIGHT_SPEECH = [
+  'Burning the midnight oil? ♡',
+  "It's really late — I'm here with you though ♡",
+  'Night owl mode ♡',
+]
+const MIDNIGHT_SPEECH_CHANCE = 0.4
+
 /** How many completed (non-invalid) sessions in one visit before a streak-milestone thought. */
 const STREAK_MILESTONE_EVERY = 3
 
@@ -855,7 +883,13 @@ export class CharacterEngine {
           this.scriptedGlance(STUDY_GLANCE_TARGETS.timer)
           this.showThought(pickRandom(STUDY_SPEECH.resume))
         } else {
-          this.showThought(pickRandom(STUDY_SPEECH.sessionStart))
+          const hour = new Date().getHours()
+          const isLateNight = hour >= 0 && hour < 4
+          if (isLateNight && Math.random() < MIDNIGHT_SPEECH_CHANCE) {
+            this.showThought(pickRandom(MIDNIGHT_SPEECH))
+          } else {
+            this.showThought(pickRandom(STUDY_SPEECH.sessionStart))
+          }
         }
       }],
       // A paused session and an on-screen "break" are the same real
@@ -879,6 +913,48 @@ export class CharacterEngine {
       // trigger list, deliberately — a recovery moment doesn't need a
       // comment, just a quick acknowledging look).
       ['study-focus-recovered',  () => this.scriptedGlance(STUDY_GLANCE_TARGETS.webcam)],
+      // Sprint: smarter focus detection — see CharacterEvent's doc
+      // comment. pushOverlay (priority 1, see CharacterStateMachine's
+      // registration) means a genuine reaction in progress (feeding,
+      // celebrating, being petted — all priority >= 10) always wins;
+      // this only shows during otherwise-quiet moments like studying.
+      ['posture-nudge-suggested', () => {
+        this.stateMachine.pushOverlay('stretching', 4000)
+        this.showThought(pickRandom(POSTURE_SPEECH))
+      }],
+      ['user-tickled', () => {
+        // Reuses the same celebrate() sequence a completed session
+        // triggers (anticipating-celebrating -> celebrating ->
+        // content-celebrating, with the usual bond/routine/memory
+        // recording) — tickling deserves the big joyful reaction, not
+        // the smaller being-petted bump a single boop gets.
+        this.actions.celebrate()
+        this.showThought(pickRandom(TICKLE_SPEECH))
+      }],
+      ['user-double-tapped', () => {
+        this.stateMachine.pushOverlay('curiosity-pause', 900)
+        this.showThought(pickRandom(DOUBLE_TAP_SPEECH))
+      }],
+      ['user-held', () => {
+        // Deliberately pushes content-petted directly rather than going
+        // through actions.pet()'s full anticipating->being-petted->
+        // content-petted sequence — a hold IS already the settled,
+        // comfortable beat that sequence works up to, so starting there
+        // reads as "she's already relaxed into it" rather than
+        // re-running the whole build-up for a gesture that's already
+        // continuous contact.
+        this.stateMachine.pushOverlay('content-petted', 1400)
+        this.showThought(pickRandom(HOLD_SPEECH))
+      }],
+      ['konami-unlocked', () => {
+        this.actions.celebrate()
+        this.showThought(pickRandom(KONAMI_SPEECH))
+      }],
+      ['streak-milestone-reached', (event) => {
+        this.actions.celebrate()
+        const streak = event.type === 'streak-milestone-reached' ? event.streak : 0
+        this.showThought(`${streak}-day streak! ♡`)
+      }],
       ['study-session-completed', (event) => {
         const classification =
           event.type === 'study-session-completed' ? event.classification : null

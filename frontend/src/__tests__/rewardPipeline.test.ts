@@ -21,6 +21,7 @@ function makePet(overrides: Partial<Pet> = {}): Pet {
     state: 'IDLE',
     currentStreak: 0,
     longestStreak: 0,
+    equippedSkin: 'skin-orange',
     ...overrides,
   }
 }
@@ -44,7 +45,7 @@ describe('rewardPipeline — computeRewardDiff', () => {
   it('reports zero gain when nothing changed', () => {
     const pet = makePet({ level: 2, xp: 30, coins: 10 })
     const diff = computeRewardDiff(pet, pet)
-    expect(diff).toEqual({ xpGained: 0, coinsGained: 0, leveledUp: false })
+    expect(diff).toEqual({ xpGained: 0, coinsGained: 0, leveledUp: false, streakGained: false, newStreak: 0 })
     expect(isRewardDiffMeaningful(diff)).toBe(false)
   })
 
@@ -52,7 +53,7 @@ describe('rewardPipeline — computeRewardDiff', () => {
     const before = makePet({ level: 2, xp: 30, coins: 10 })
     const after = makePet({ level: 2, xp: 55, coins: 35 })
     const diff = computeRewardDiff(before, after)
-    expect(diff).toEqual({ xpGained: 25, coinsGained: 25, leveledUp: false })
+    expect(diff).toEqual({ xpGained: 25, coinsGained: 25, leveledUp: false, streakGained: false, newStreak: 0 })
     expect(isRewardDiffMeaningful(diff)).toBe(true)
   })
 

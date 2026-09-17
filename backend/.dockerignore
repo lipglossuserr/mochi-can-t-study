@@ -1,0 +1,8 @@
+target/
+firebase/serviceAccountKey.json
+src/main/resources/application-local.properties
+.git/
+.idea/
+*.iml
+functions/node_modules/
+functions/lib/

@@ -8,6 +8,10 @@ interface DraggableTrayItemProps {
     dropZoneRef: RefObject<HTMLElement | null>
     /** Called only when the release point actually lands on Mochi. */
     onDrop: () => void
+    /** Forwarded to useDraggableSprite — see that hook's own doc comment. Powers Mochi's "chase the toy" reaction; harmless to omit. */
+    onDragMove?: (clientX: number, clientY: number) => void
+    /** Forwarded to useDraggableSprite — fires on ANY drag end (hit, miss, or cancelled), for stopping a chase reaction regardless of outcome. */
+    onDragEnd?: () => void
     /** True while the corresponding feed()/play() API call is in flight — the item can't be picked up again until it resolves. */
     disabled?: boolean
     tone?: 'feed' | 'play'
@@ -34,10 +38,21 @@ const TONE_CLASSES: Record<NonNullable<DraggableTrayItemProps['tone']>, string> 
  * discoverability-over-strict-operability precedent PettableCharacter
  * already set for gesture-only elements in this codebase.
  */
-function DraggableTrayItem({ emoji, label, dropZoneRef, onDrop, disabled = false, tone = 'feed' }: DraggableTrayItemProps) {
+function DraggableTrayItem({
+    emoji,
+    label,
+    dropZoneRef,
+    onDrop,
+    onDragMove,
+    onDragEnd,
+    disabled = false,
+    tone = 'feed',
+}: DraggableTrayItemProps) {
     const { isDragging, dragStyle, handlers } = useDraggableSprite({
         dropZoneRef,
         disabled,
+        onDragMove,
+        onDragEnd,
         onDrop: (info) => {
             if (info.hit) onDrop()
         },

@@ -8,8 +8,10 @@
 export { EnvironmentProvider } from './react/EnvironmentProvider'
 export { useEnvironment } from './react/useEnvironment'
 export { useMochiEnvironmentBridge } from './react/useMochiEnvironmentBridge'
+export { useWeatherSync } from './react/useWeatherSync'
 export type {
     TimeOfDay,
+    WeatherCondition,
     MochiActivityLevel,
     EnvironmentLighting,
     EnvironmentSnapshot,

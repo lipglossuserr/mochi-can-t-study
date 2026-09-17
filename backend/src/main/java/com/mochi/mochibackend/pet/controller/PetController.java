@@ -2,7 +2,10 @@ package com.mochi.mochibackend.pet.controller;
 
 import com.mochi.mochibackend.dto.ApiResponse;
 import com.mochi.mochibackend.exception.InvalidFirebaseTokenException;
+import com.mochi.mochibackend.pet.dto.EquipSkinRequest;
 import com.mochi.mochibackend.pet.dto.PetResponse;
+import com.mochi.mochibackend.pet.dto.PublicPetBatchRequest;
+import com.mochi.mochibackend.pet.dto.PublicPetSummaryResponse;
 import com.mochi.mochibackend.pet.dto.SpendCoinsRequest;
 import com.mochi.mochibackend.pet.mapper.PetMapper;
 import com.mochi.mochibackend.pet.service.PetService;
@@ -12,10 +15,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * The {@code /api/pet} contract. Controllers only translate HTTP <->
@@ -65,6 +71,35 @@ public class PetController {
     public ResponseEntity<ApiResponse<PetResponse>> spendCoins(@Valid @RequestBody SpendCoinsRequest request) {
         PetResponse response = mapper.toResponse(petService.spendCoins(currentUid(), request.getAmount()));
         return ResponseEntity.ok(ApiResponse.success("Coins spent", response));
+    }
+
+    /**
+     * Equips an owned SKIN item (Shop v1.1) — see {@link PetService#equipSkin}
+     * for the ownership rule. PATCH (not POST) since this sets a
+     * resource field to an idempotent value, unlike feed/play's
+     * cumulative stat changes.
+     */
+    @PatchMapping("/skin")
+    public ResponseEntity<ApiResponse<PetResponse>> equipSkin(@Valid @RequestBody EquipSkinRequest request) {
+        PetResponse response = mapper.toResponse(petService.equipSkin(currentUid(), request.getItemKey()));
+        return ResponseEntity.ok(ApiResponse.success("Skin equipped", response));
+    }
+
+    /**
+     * Cosmetic-only batch lookup for presence tiles — Study Rooms Phase
+     * 2. POST (not GET) because a uid list is a request body, not a
+     * path/query concern, same reasoning as SpendCoinsRequest being a
+     * body rather than a query param. A uid with no pet is silently
+     * omitted from the response rather than erroring — see
+     * {@link PetService#getPublicSummaries}.
+     */
+    @PostMapping("/public-batch")
+    public ResponseEntity<ApiResponse<List<PublicPetSummaryResponse>>> publicBatch(
+            @Valid @RequestBody PublicPetBatchRequest request) {
+        List<PublicPetSummaryResponse> response = petService.getPublicSummaries(request.getUids()).stream()
+                .map(mapper::toPublicSummary)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success("Public pet summaries retrieved", response));
     }
 
     /** Same pattern as StudySessionController: the uid comes from the verified Firebase token. */

@@ -102,6 +102,15 @@ public class Pet {
     @Column(name = "last_study_date")
     private LocalDate lastStudyDate;
 
+    /**
+     * {@code itemKey} of the currently-equipped SKIN item (Shop v1.1).
+     * Defaults to {@code "skin-orange"} — mochi.riv's built-in look,
+     * never sold, so this is always valid without owning an
+     * {@code InventoryEntry} for it. See {@code PetService#equipSkin}.
+     */
+    @Column(name = "equipped_skin_item_key", nullable = false, length = 64)
+    private String equippedSkinItemKey = "skin-orange";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -18,7 +18,7 @@ public class ItemMapper {
                 item.getDescription(),
                 item.getCategory().name(),
                 item.getPrice(),
-                item.getLayer() != null ? item.getLayer().name() : null, // FOOD has no layer
+                item.getLayer() != null ? item.getLayer().name() : null,
                 item.getImagePath(),
                 item.getFallbackEmoji()
         );

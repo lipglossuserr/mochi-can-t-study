@@ -27,10 +27,10 @@ const EASE_SETTLE = [0.34, 1.3, 0.64, 1] as const
  * PetSpeechBubble
  *
  * A small, reusable speech bubble that pops up next to Mochi. It only
- * knows about a `message` string, so it works identically whether
- * Mochi is rendered as the placeholder SVG (MochiFallback) or the
- * future Rive asset — it's just absolutely positioned over whichever
- * one is on screen.
+ * knows about a `message` string, so it works identically regardless
+ * of which renderer is drawing Mochi underneath it (the live Rive
+ * asset, or ProceduralLayer's CSS fallback) — it's just absolutely
+ * positioned over whichever one is on screen.
  *
  * Fully self-contained: it auto-hides itself after `autoHideMs` (plus
  * the reveal delay), so callers only need to set a new message to show

@@ -1,9 +1,11 @@
 package com.mochi.mochibackend.roomlayout.service;
 
 import com.mochi.mochibackend.exception.ItemAlreadyPlacedException;
+import com.mochi.mochibackend.exception.ItemNotPlaceableException;
 import com.mochi.mochibackend.exception.RoomLayoutEntryNotFoundException;
 import com.mochi.mochibackend.inventory.entity.InventoryEntry;
 import com.mochi.mochibackend.inventory.service.InventoryService;
+import com.mochi.mochibackend.item.enums.ItemCategory;
 import com.mochi.mochibackend.roomlayout.dto.CreateRoomLayoutRequest;
 import com.mochi.mochibackend.roomlayout.dto.UpdateRoomLayoutRequest;
 import com.mochi.mochibackend.roomlayout.entity.RoomLayoutEntry;
@@ -49,16 +51,16 @@ public class RoomLayoutService {
     public RoomLayoutEntry create(String userId, CreateRoomLayoutRequest request) {
         InventoryEntry inventoryEntry = inventoryService.requireOwnedEntry(userId, request.getInventoryEntryId());
 
-        if (inventoryEntry.getItem().getCategory() == com.mochi.mochibackend.item.enums.ItemCategory.FOOD) {
-            throw new com.mochi.mochibackend.exception.FoodItemNotPlaceableException(
-                    "Food items cannot be placed in the room; drop them on Mochi to feed her instead");
+        ItemCategory category = inventoryEntry.getItem().getCategory();
+        if (category == ItemCategory.FOOD || category == ItemCategory.SKIN) {
+            throw new ItemNotPlaceableException(
+                    "Items of category " + category + " cannot be placed in the room");
         }
 
         if (roomLayoutRepository.findByInventoryEntryId(inventoryEntry.getId()).isPresent()) {
             throw new ItemAlreadyPlacedException(
                     "Inventory entry " + inventoryEntry.getId() + " is already placed; use PATCH to reposition it");
         }
-
 
         RoomLayoutEntry entry = new RoomLayoutEntry();
         entry.setUserId(userId);

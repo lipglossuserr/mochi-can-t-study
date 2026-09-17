@@ -16,6 +16,8 @@ import { publishDiagnostics } from './capability/rendererDiagnosticsStore'
 import { STATE_OVERLAYS } from './capability/rendererContract'
 import { resolveRenderPath, type RenderTier } from './capability/resolveRenderPath'
 import { RiveOverlayController } from './RiveOverlayController'
+import { RiveInputs, ViewModelBridge } from './riveInputBridge'
+import { FOCUS_LEVEL_2_AFTER_MS, FOCUS_LEVEL_3_AFTER_MS, resolveSkinTimeline } from './riveAssetConstants'
 
 /**
  * Rive renderer for mochi.riv.
@@ -56,10 +58,6 @@ import { RiveOverlayController } from './RiveOverlayController'
 const RIVE_SRC = '/mochi.riv'
 const STATE_MACHINE_NAME = 'State Machine 1'
 
-/** Study-session focus escalation (ms into 'studying'). */
-const FOCUS_LEVEL_2_AFTER_MS = 3 * 60 * 1000
-const FOCUS_LEVEL_3_AFTER_MS = 8 * 60 * 1000
-
 /** Legacy 4-state view, still used by PetContext for captions. */
 const ENGINE_TO_LEGACY: Record<string, PetState> = {
     studying: 'STUDYING',
@@ -74,125 +72,7 @@ export function toLegacyPetState(state: CharacterStateId): PetState {
     return ENGINE_TO_LEGACY[state] ?? 'IDLE'
 }
 
-/** Case-insensitive registry of the machine's inputs, built at load. */
-class RiveInputs {
-    private byName = new Map<string, StateMachineInput>()
-    /** Sprint 6.6D-1: last successful set()/fire(), for dev diagnostics only. */
-    lastActive: { name: string; value: boolean | number | 'fired' } | null = null
-
-    constructor(inputs: StateMachineInput[]) {
-        inputs.forEach((input) => this.byName.set(input.name.trim().toLowerCase(), input))
-    }
-
-    fire(name: string): boolean {
-        const input = this.byName.get(name.toLowerCase())
-        if (!input) return false
-        try {
-            input.fire()
-            this.lastActive = { name, value: 'fired' }
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    set(name: string, value: boolean | number): boolean {
-        const input = this.byName.get(name.toLowerCase())
-        if (!input) return false
-        try {
-            input.value = value
-            this.lastActive = { name, value }
-            return true
-        } catch {
-            return false
-        }
-    }
-}
-
-/**
- * Sprint 6.6D-3: bridge onto the asset's Data Binding ViewModel
- * instance. Manual inspection had assumed mochi.riv used a classic
- * State Machine only — 6.6D-2's validator proved that wrong:
- * focusLvl1/2/3, focusEnd, food_fish (Food_Spawn_Fish), and isPressed
- * are all bound ViewModel properties instead, which RiveInputs (built
- * from stateMachineInputs() alone) can never see or drive. This bridge
- * writes to those bound properties directly, with the same defensive
- * multi-shape probing inspectViewModel() uses in
- * capability/RendererCapabilityRegistry.ts, since the property-accessor
- * API's exact method names have moved across @rive-app/react-canvas
- * versions and aren't worth hard-coding a single shape for.
- */
-class ViewModelBridge {
-    private readonly instance: unknown
-
-    constructor(instance: unknown) {
-        this.instance = instance
-    }
-
-    private resolveProperty(name: string, accessor: 'boolean' | 'number' | 'trigger'): unknown {
-        if (!this.instance) return null
-
-        // Shape A: instance.boolean(name) / instance.number(name) / instance.trigger(name)
-        const typedAccessor = (this.instance as Record<string, unknown>)[accessor]
-        if (typeof typedAccessor === 'function') {
-            try {
-                const prop = (typedAccessor as (n: string) => unknown).call(this.instance, name)
-                if (prop) return prop
-            } catch {
-                /* fall through to a generic property lookup */
-            }
-        }
-
-        // Shape B: instance.properties / instance.getProperties(), searched by name —
-        // same list inspectViewModel() reads to report property names.
-        try {
-            const list =
-                (this.instance as { properties?: Array<{ name: string }> }).properties ??
-                (this.instance as { getProperties?: () => Array<{ name: string }> }).getProperties?.()
-            if (Array.isArray(list)) {
-                const match = list.find((prop) => prop.name?.toLowerCase() === name.toLowerCase())
-                if (match) return match
-            }
-        } catch {
-            /* no generic list available on this instance shape either */
-        }
-
-        return null
-    }
-
-    set(name: string, value: boolean | number): boolean {
-        const kind = typeof value === 'boolean' ? 'boolean' : 'number'
-        const prop = this.resolveProperty(name, kind)
-        if (!prop) return false
-        try {
-            ;(prop as { value: boolean | number }).value = value
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    fire(name: string): boolean {
-        const prop = this.resolveProperty(name, 'trigger')
-        if (!prop) return false
-        try {
-            const triggerable = prop as { trigger?: () => void; fire?: () => void }
-            if (typeof triggerable.trigger === 'function') {
-                triggerable.trigger()
-                return true
-            }
-            if (typeof triggerable.fire === 'function') {
-                triggerable.fire()
-                return true
-            }
-        } catch {
-            return false
-        }
-        return false
-    }
-}
-
-function RiveCharacterRenderer({ state, ariaLabel }: CharacterRendererProps) {
+function RiveCharacterRenderer({ state, ariaLabel, skin }: CharacterRendererProps) {
     const [loadFailed, setLoadFailed] = useState(false)
     const inputsRef = useRef<RiveInputs | null>(null)
     /** Sprint 6.6D-3: fallback for inputs the machine exposes as bound ViewModel properties instead. */
@@ -205,6 +85,11 @@ function RiveCharacterRenderer({ state, ariaLabel }: CharacterRendererProps) {
     const focusTimersRef = useRef<number[]>([])
     /** Sprint 6.7A: extracted, race-safe overlay play/release — one instance per mount. */
     const overlaysRef = useRef(new RiveOverlayController())
+    /** Which skin timeline is currently playing, so a skin change releases the right one instead of guessing. */
+    const activeSkinTimelineRef = useRef<string | null>(null)
+    /** Always-current `skin` for the load effect to read without adding it as a dependency (which would re-run the whole load/inspect/validate sequence on every re-skin). */
+    const skinRef = useRef(skin)
+    skinRef.current = skin
 
     useEffect(() => {
         const overlays = overlaysRef.current
@@ -270,9 +155,26 @@ function RiveCharacterRenderer({ state, ariaLabel }: CharacterRendererProps) {
             validation,
         })
 
-        // Orange variant: a one-shot skin timeline mixed over the machine.
-        overlaysRef.current.play(rive, timelinesRef.current, ['orange'])
+        // The pet's equipped skin (Shop v1.1) — one-shot timeline mixed
+        // over the machine. Read via the ref (not the `skin` prop
+        // directly) so this load effect stays dependent on [rive] only;
+        // a skin change after load is handled by the dedicated effect
+        // below instead of re-running inspection/validation.
+        const skinTimeline = resolveSkinTimeline(skinRef.current)
+        activeSkinTimelineRef.current = skinTimeline
+        overlaysRef.current.play(rive, timelinesRef.current, [skinTimeline])
     }, [rive])
+
+    // ---- skin prop changes after load: swap the one-shot skin timeline live ----
+    useEffect(() => {
+        if (!rive) return
+        const nextTimeline = resolveSkinTimeline(skin)
+        const current = activeSkinTimelineRef.current
+        if (current === nextTimeline) return
+        if (current) overlaysRef.current.release(rive, timelinesRef.current, [current])
+        overlaysRef.current.play(rive, timelinesRef.current, [nextTimeline])
+        activeSkinTimelineRef.current = nextTimeline
+    }, [rive, skin])
 
     // ---- engine state → capability-driven render path ----
     useEffect(() => {

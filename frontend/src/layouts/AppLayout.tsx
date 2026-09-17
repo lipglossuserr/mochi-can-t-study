@@ -3,6 +3,8 @@ import Sidebar from '@/components/navigation/Sidebar'
 import BottomNavigation from '@/components/navigation/BottomNavigation'
 import TopBar from '@/components/navigation/TopBar'
 import GlobalPetLayer from '@/features/pet/components/GlobalPetLayer'
+import GlobalConfettiLayer from '@/features/confetti/GlobalConfettiLayer'
+import KonamiEasterEgg from '@/features/confetti/KonamiEasterEgg'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 /**
@@ -69,6 +71,8 @@ function AppLayout() {
 
       <BottomNavigation />
       <GlobalPetLayer />
+      <GlobalConfettiLayer />
+      <KonamiEasterEgg />
     </div>
   )
 }

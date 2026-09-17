@@ -8,6 +8,7 @@ import com.mochi.mochibackend.exception.InvalidFocusBatchException;
 import com.mochi.mochibackend.model.SessionStatus;
 import com.mochi.mochibackend.model.StudySession;
 import com.mochi.mochibackend.pet.service.RewardService;
+import com.mochi.mochibackend.repository.CoStudyRoomRepository;
 import com.mochi.mochibackend.repository.FocusBatchRepository;
 import com.mochi.mochibackend.repository.StudySessionRepository;
 import com.mochi.mochibackend.task.service.TaskService;
@@ -42,6 +43,9 @@ class FocusAggregationServiceTest {
     @Mock
     private FocusBatchRepository batchRepository;
 
+    @Mock
+    private CoStudyRoomRepository coStudyRoomRepository;
+
     private FocusAggregationService service;
     private StudySession session;
 
@@ -51,6 +55,8 @@ class FocusAggregationServiceTest {
         StudySessionService sessionService =
                 new StudySessionService(
                         sessionRepository,
+                        batchRepository,
+                        coStudyRoomRepository,
                         fixed,
                         org.mockito.Mockito.mock(RewardService.class),
                         org.mockito.Mockito.mock(DailyGoalService.class),

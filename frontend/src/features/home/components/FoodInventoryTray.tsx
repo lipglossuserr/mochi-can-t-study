@@ -9,6 +9,10 @@ interface FoodInventoryTrayProps {
     dropZoneRef: RefObject<HTMLElement | null>
     onConsume: (inventoryEntryId: number) => void
     isConsuming: (inventoryEntryId: number) => boolean
+    /** Forwarded to useDraggableSprite — powers Mochi's "chase the toy" reaction while a food tile is being dragged. Harmless to omit. */
+    onDragMove?: (clientX: number, clientY: number) => void
+    /** Forwarded to useDraggableSprite — fires on ANY drag end (hit, miss, or cancelled). */
+    onDragEnd?: () => void
 }
 
 /**
@@ -22,7 +26,7 @@ interface FoodInventoryTrayProps {
  * not "place", so this is a separate small component rather than
  * forcing InventoryTray's onPlace(x, y) shape onto a feed gesture.
  */
-function FoodInventoryTray({ entries, dropZoneRef, onConsume, isConsuming }: FoodInventoryTrayProps) {
+function FoodInventoryTray({ entries, dropZoneRef, onConsume, isConsuming, onDragMove, onDragEnd }: FoodInventoryTrayProps) {
     if (entries.length === 0) {
         return (
             <p className="text-center font-body text-[11px] text-ink/40">
@@ -42,6 +46,8 @@ function FoodInventoryTray({ entries, dropZoneRef, onConsume, isConsuming }: Foo
                         dropZoneRef={dropZoneRef}
                         onConsume={onConsume}
                         pending={isConsuming(entry.id)}
+                        onDragMove={onDragMove}
+                        onDragEnd={onDragEnd}
                     />
                 ))}
             </div>
@@ -54,15 +60,19 @@ interface FoodTrayTileProps {
     dropZoneRef: RefObject<HTMLElement | null>
     onConsume: (inventoryEntryId: number) => void
     pending: boolean
+    onDragMove?: (clientX: number, clientY: number) => void
+    onDragEnd?: () => void
 }
 
-function FoodTrayTile({ entry, dropZoneRef, onConsume, pending }: FoodTrayTileProps) {
+function FoodTrayTile({ entry, dropZoneRef, onConsume, pending, onDragMove, onDragEnd }: FoodTrayTileProps) {
     const { isDragging, dragStyle, handlers } = useDraggableSprite({
         dropZoneRef,
         disabled: pending,
         onDrop: (info) => {
             if (info.hit) onConsume(entry.id)
         },
+        onDragMove,
+        onDragEnd,
     })
 
     return (

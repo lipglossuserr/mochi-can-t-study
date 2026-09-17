@@ -29,8 +29,9 @@ function GoalCard({ goal, onEdit, onDeleteRequest, saving, deleting }: GoalCardP
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
+      whileHover={{ y: -2 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`rounded-[1.75rem] border border-white/50 bg-white/45 p-5 shadow-sm backdrop-blur-xl transition-opacity ${
+      className={`glow-hover rounded-[1.75rem] border border-white/50 bg-white/45 p-5 shadow-sm backdrop-blur-xl transition-opacity ${
         busy ? 'opacity-60' : ''
       }`}
     >
@@ -56,7 +57,7 @@ function GoalCard({ goal, onEdit, onDeleteRequest, saving, deleting }: GoalCardP
             onClick={() => onEdit(goal)}
             disabled={busy}
             aria-label={`Edit "${goal.title}"`}
-            className="rounded-full p-2 font-body text-sm text-ink/50 transition-colors hover:bg-blush-light hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full p-2 font-body text-sm text-ink/50 transition-all duration-150 hover:scale-110 hover:bg-blush-light hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             ✎
           </button>
@@ -65,7 +66,7 @@ function GoalCard({ goal, onEdit, onDeleteRequest, saving, deleting }: GoalCardP
             onClick={() => onDeleteRequest(goal)}
             disabled={busy}
             aria-label={`Delete "${goal.title}"`}
-            className="rounded-full p-2 font-body text-sm text-ink/50 transition-colors hover:bg-blush-light hover:text-berry disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full p-2 font-body text-sm text-ink/50 transition-all duration-150 hover:scale-110 hover:bg-blush-light hover:text-berry disabled:cursor-not-allowed disabled:opacity-50"
           >
             🗑
           </button>

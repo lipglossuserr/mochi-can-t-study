@@ -27,14 +27,15 @@ import type { Pet } from '../types/pet'
  * module's own dedup below is purely a client-side *display* guard on
  * top of that already-solid server guarantee, not a substitute for it.
  *
- * Streaks: the backend does not yet return a streak field on `Pet` (see
- * that type's doc comment) — `computeRewardDiff` and `RewardDiff`
- * intentionally have no streak field of their own rather than
- * fabricating one client-side, which would contradict "the server is
- * the single source of truth" outright. Once the backend adds one,
- * extending `RewardDiff` with a real `streakGained`/`newStreak` value
- * diffed the same way as xp/coins is the entire change needed here —
- * no pipeline restructuring.
+ * Streaks: `computeRewardDiff` diffs `currentStreak` the same way as
+ * xp/coins — a server-returned `Pet.currentStreak`/`longestStreak` pair
+ * (confirmed against `Pet.java`/`RewardService.java`: `updateStreak`
+ * increments on a new calendar day, no-ops same-day, resets to 1 on a
+ * gap). `streakGained` is a boolean rather than a numeric delta,
+ * because unlike xp/coins (which can jump by any amount in one
+ * completion), a streak can only ever go up by exactly one day per
+ * completion — the interesting fact to celebrate is "did today extend
+ * it", not "by how much".
  */
 
 /**
@@ -60,6 +61,10 @@ export interface RewardDiff {
     xpGained: number
     coinsGained: number
     leveledUp: boolean
+    /** True when this completion pushed currentStreak up by one (a new calendar day studied). Never true on a same-day repeat completion — see updateStreak's no-op case. */
+    streakGained: boolean
+    /** after.currentStreak, always — shown regardless of streakGained so the celebration can say "3-day streak" even when e.g. only xp/coins changed on a same-day repeat. */
+    newStreak: number
 }
 
 /**
@@ -77,11 +82,13 @@ export function computeRewardDiff(before: Pet, after: Pet): RewardDiff {
         xpGained: Math.max(0, after.xp - before.xp),
         coinsGained: Math.max(0, after.coins - before.coins),
         leveledUp: after.level > before.level,
+        streakGained: after.currentStreak > before.currentStreak,
+        newStreak: after.currentStreak,
     }
 }
 
 export function isRewardDiffMeaningful(diff: RewardDiff): boolean {
-    return diff.xpGained > 0 || diff.coinsGained > 0 || diff.leveledUp
+    return diff.xpGained > 0 || diff.coinsGained > 0 || diff.leveledUp || diff.streakGained
 }
 
 // ---------------------------------------------------------------------

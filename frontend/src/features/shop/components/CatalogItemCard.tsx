@@ -24,6 +24,19 @@ interface CatalogItemCardProps {
      * don't have to wire it up immediately.
      */
     celebrateTrigger?: number
+    /**
+     * SKIN items only (Shop v1.1): whether the user already owns this
+     * one. Irrelevant for FURNITURE/TOY/DECORATION, which are always
+     * bought again (see InventoryEntry's doc comment on owning multiple
+     * of the same decoration) — undefined for those, never checked.
+     */
+    owned?: boolean
+    /** SKIN items only: whether this is the pet's currently-equipped coat. */
+    equipped?: boolean
+    /** SKIN items only: called instead of `onBuy` once `owned` is true. */
+    onEquip?: (item: ShopItem) => void
+    /** True while THIS item's equip request is in flight. */
+    equipPending?: boolean
 }
 
 const CATEGORY_LABEL: Record<ShopItem['category'], string> = {
@@ -31,6 +44,7 @@ const CATEGORY_LABEL: Record<ShopItem['category'], string> = {
     TOY: 'Toy',
     DECORATION: 'Decor',
     FOOD: 'Food',
+    SKIN: 'Skin',
 }
 
 /**
@@ -47,9 +61,20 @@ const CATEGORY_LABEL: Record<ShopItem['category'], string> = {
  * balance itself and is what actually decides whether a purchase
  * succeeds.
  */
-function CatalogItemCard({ item, coins, onBuy, pending, celebrateTrigger = 0 }: CatalogItemCardProps) {
+function CatalogItemCard({
+    item,
+    coins,
+    onBuy,
+    pending,
+    celebrateTrigger = 0,
+    owned = false,
+    equipped = false,
+    onEquip,
+    equipPending = false,
+}: CatalogItemCardProps) {
     const [imageFailed, setImageFailed] = useState(false)
     const affordable = coins >= item.price
+    const isSkin = item.category === 'SKIN'
 
     const [isSquishing, setIsSquishing] = useState(false)
     useEffect(() => {
@@ -103,14 +128,25 @@ function CatalogItemCard({ item, coins, onBuy, pending, celebrateTrigger = 0 }: 
                 <span className="font-body text-sm font-semibold text-ink/80">{item.price}</span>
             </div>
 
-            <button
-                type="button"
-                onClick={() => onBuy(item)}
-                disabled={pending || !affordable}
-                className="mt-4 w-full rounded-full bg-gradient-to-b from-taro to-taro-dark px-4 py-2 font-body text-sm font-semibold text-white shadow transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:from-ink/20 disabled:to-ink/20 disabled:text-ink/40 disabled:shadow-none disabled:hover:scale-100"
-            >
-                {pending ? 'Buying…' : affordable ? 'Buy' : 'Not enough coins'}
-            </button>
+            {isSkin && owned ? (
+                <button
+                    type="button"
+                    onClick={() => onEquip?.(item)}
+                    disabled={equipPending || equipped}
+                    className="shine-sweep mt-4 w-full rounded-full bg-gradient-to-b from-taro to-taro-dark px-4 py-2 font-body text-sm font-semibold text-white shadow transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:from-ink/20 disabled:to-ink/20 disabled:text-ink/40 disabled:shadow-none disabled:hover:scale-100"
+                >
+                    {equipped ? 'Equipped' : equipPending ? 'Equipping…' : 'Equip'}
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => onBuy(item)}
+                    disabled={pending || !affordable}
+                    className="shine-sweep mt-4 w-full rounded-full bg-gradient-to-b from-taro to-taro-dark px-4 py-2 font-body text-sm font-semibold text-white shadow transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:from-ink/20 disabled:to-ink/20 disabled:text-ink/40 disabled:shadow-none disabled:hover:scale-100"
+                >
+                    {pending ? 'Buying…' : affordable ? 'Buy' : 'Not enough coins'}
+                </button>
+            )}
         </motion.div>
     )
 }

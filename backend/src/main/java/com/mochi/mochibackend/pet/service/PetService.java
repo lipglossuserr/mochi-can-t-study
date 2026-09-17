@@ -3,6 +3,8 @@ package com.mochi.mochibackend.pet.service;
 import com.mochi.mochibackend.exception.InsufficientCoinsException;
 import com.mochi.mochibackend.exception.PetAlreadyExistsException;
 import com.mochi.mochibackend.exception.PetNotFoundException;
+import com.mochi.mochibackend.exception.SkinNotOwnedException;
+import com.mochi.mochibackend.inventory.repository.InventoryEntryRepository;
 import com.mochi.mochibackend.pet.entity.Pet;
 import com.mochi.mochibackend.pet.enums.PetSpecies;
 import com.mochi.mochibackend.pet.enums.PetStage;
@@ -11,6 +13,8 @@ import com.mochi.mochibackend.pet.repository.PetRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * Pet lifecycle logic for this sprint: starter-pet creation, lookup, and
@@ -42,10 +46,30 @@ public class PetService {
     private static final int PLAY_MOOD_GAIN = 15;
     private static final int PLAY_BOND_GAIN = 10;
 
-    private final PetRepository petRepository;
+    /** mochi.riv's built-in look — never sold, always equippable, matches {@code Pet.equippedSkinItemKey}'s column default. */
+    private static final String DEFAULT_SKIN_ITEM_KEY = "skin-orange";
 
-    public PetService(PetRepository petRepository) {
+    private final PetRepository petRepository;
+    private final InventoryEntryRepository inventoryEntryRepository;
+
+    public PetService(PetRepository petRepository, InventoryEntryRepository inventoryEntryRepository) {
         this.petRepository = petRepository;
+        this.inventoryEntryRepository = inventoryEntryRepository;
+    }
+
+    /**
+     * Batch cosmetic lookup for presence tiles (Study Rooms Phase 2).
+     * Unlike {@link #getPet}, this never provisions a starter pet for a
+     * uid that doesn't have one yet — a room participant who somehow
+     * has no pet is simply omitted from the result rather than getting
+     * one created as a side effect of someone else loading a room.
+     */
+    @Transactional(readOnly = true)
+    public List<Pet> getPublicSummaries(List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        return petRepository.findAllByUserIdIn(userIds);
     }
 
     /**
@@ -71,6 +95,7 @@ public class PetService {
         pet.setMood(STARTER_MOOD);
         pet.setBond(STARTER_BOND);
         pet.setState(PetState.IDLE);
+        pet.setEquippedSkinItemKey(DEFAULT_SKIN_ITEM_KEY);
 
         try {
             return petRepository.saveAndFlush(pet);
@@ -143,6 +168,33 @@ public class PetService {
      */
     @Transactional
     public Pet save(Pet pet) {
+        return petRepository.save(pet);
+    }
+
+    /**
+     * Equips a SKIN item (Shop v1.1) — RivePet.tsx/RiveCharacterRenderer.tsx
+     * read {@code equippedSkinItemKey} back off {@code PetResponse} and
+     * play the matching mochi.riv timeline. {@code DEFAULT_SKIN_ITEM_KEY}
+     * is always allowed (it's never sold, so there's no InventoryEntry
+     * row to check); any other key requires an owned InventoryEntry for
+     * that exact item — this method doesn't care whether the key even
+     * belongs to a real, active SKIN item, since equipping a retired or
+     * bogus key a user doesn't own is already rejected by the ownership
+     * check, and equipping a key for a category other than SKIN is a
+     * client bug this deliberately doesn't defend against (same trust
+     * boundary {@code spendCoins} draws around "what was bought").
+     */
+    @Transactional
+    public Pet equipSkin(String userId, String itemKey) {
+        Pet pet = requireOwnedPet(userId);
+
+        boolean owned = itemKey.equals(DEFAULT_SKIN_ITEM_KEY)
+                || inventoryEntryRepository.existsByUserIdAndItem_ItemKey(userId, itemKey);
+        if (!owned) {
+            throw new SkinNotOwnedException("Skin not owned: " + itemKey);
+        }
+
+        pet.setEquippedSkinItemKey(itemKey);
         return petRepository.save(pet);
     }
 

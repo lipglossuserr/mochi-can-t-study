@@ -18,13 +18,25 @@ export const STATE_OVERLAYS: Record<string, string[]> = {
     'looking-around': ['leftandright'],
     'following-cursor': ['leftandright'],
     'curiosity-pause': ['leftandright'],
-    'presence-glance': ['leftandright'],
     stretching: ['upanddown'],
     yawning: ['upanddown'],
     sleeping: ['Idle 2'],
     happy: ['upanddown'],
     playing: ['upanddown', 'leftandright'],
     celebrating: ['upanddown', 'leftandright'],
+    /**
+     * Shop v1.1 / bug report: the plain resting state had no Rive-side
+     * overlay at all before this — it always fell through to
+     * ProceduralLayer's CSS-only rest pose (StateToClipMap's
+     * `idle: restPlan('neutral')`), even though the asset has a genuine,
+     * previously-unused 'Idle' timeline distinct from 'Idle 2' (see that
+     * REFERENCED_TIMELINES entry's comment for how the two were told
+     * apart — 'Idle' and 'Idle 2' are two different, real timelines, not
+     * a naming mismatch). This is what gives plain idle a subtly
+     * different, slightly bored-looking loop instead of always reading
+     * as the exact same pose 'sleeping' uses.
+     */
+    idle: ['Idle'],
 }
 
 /**
@@ -46,8 +58,23 @@ export const REFERENCED_INPUTS: Array<{ primary: string; fallback?: string }> = 
     { primary: 'isPressed', fallback: 'Trigger 1' },
 ]
 
-/** Every timeline name RiveCharacterRenderer plays as a machine-independent overlay. */
-export const REFERENCED_TIMELINES = ['orange', 'leftandright', 'upanddown', 'Idle 2'] as const
+/**
+ * Every timeline name RiveCharacterRenderer plays as a machine-independent
+ * overlay. 'orange'/'calico'/'white' are the asset's three one-shot skin
+ * variants (Shop v1.1 — see SKIN_TIMELINES in RiveCharacterRenderer.tsx
+ * for how the pet's equipped-skin itemKey resolves to one of these);
+ * 'Idle' (distinct from 'Idle 2' — verified byte-for-byte against the raw
+ * asset, not a typo of it) is the plain-idle overlay above.
+ */
+export const REFERENCED_TIMELINES = [
+    'orange',
+    'calico',
+    'white',
+    'leftandright',
+    'upanddown',
+    'Idle',
+    'Idle 2',
+] as const
 
 /**
  * The specific input(s) each state-machine-handled state needs to enter

@@ -4,6 +4,7 @@ import type { ApiResponse } from '@/types/api'
 import type {
   FocusBatchAck,
   FocusBatchRequest,
+  FocusTimelinePoint,
   StartSessionRequest,
   StudySession,
 } from '@/types/studySession'
@@ -44,6 +45,13 @@ export function fetchActiveSession(): Promise<
 
 export function fetchSession(id: number): SessionResponse {
   return api.get(`/study-sessions/${id}`)
+}
+
+/** Session focus timeline graph — one point per recorded focus batch, oldest first. */
+export function fetchFocusTimeline(
+  id: number,
+): Promise<AxiosResponse<ApiResponse<FocusTimelinePoint[]>>> {
+  return api.get(`/study-sessions/${id}/focus-timeline`)
 }
 
 export function sendFocusBatch(

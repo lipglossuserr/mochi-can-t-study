@@ -11,7 +11,7 @@
  */
 import type { Pet } from '@/features/pet/types/pet'
 
-export type ItemCategory = 'FURNITURE' | 'TOY' | 'DECORATION' | 'FOOD'
+export type ItemCategory = 'FURNITURE' | 'TOY' | 'DECORATION' | 'FOOD' | 'SKIN'
 
 export type ItemLayer = 'BEHIND_MOCHI' | 'IN_FRONT_OF_MOCHI'
 
@@ -23,7 +23,7 @@ export interface ShopItem {
   description: string
   category: ItemCategory
   price: number
-  /** Null for FOOD — food has no room presence. */
+  /** Null for FOOD and SKIN items — neither has a room presence (food is eaten, skins are equipped onto the pet). See Item.java's `layer` doc comment. */
   layer: ItemLayer | null
   imagePath: string
   fallbackEmoji: string

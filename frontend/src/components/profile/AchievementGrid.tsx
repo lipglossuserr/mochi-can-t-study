@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import type { Achievement } from '@/features/achievements'
 
 interface AchievementGridProps {
@@ -24,25 +25,31 @@ function AchievementGrid({ achievements }: AchievementGridProps) {
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {achievements.map((achievement) => (
-          <div
+          <motion.div
             key={achievement.key}
             title={achievement.description}
+            whileHover={achievement.unlocked ? { y: -3, scale: 1.03 } : undefined}
             className={`rounded-[1.5rem] border p-4 text-center transition-opacity ${
               achievement.unlocked
-                ? 'border-white/60 bg-white/50'
+                ? 'glow-hover cursor-default border-white/60 bg-white/50'
                 : 'border-white/30 bg-white/20 opacity-45 grayscale'
             }`}
           >
-            <p className="text-2xl" aria-hidden="true">
+            <motion.p
+              className="text-2xl"
+              aria-hidden="true"
+              whileHover={achievement.unlocked ? { rotate: [0, -10, 10, 0], scale: 1.15 } : undefined}
+              transition={{ duration: 0.4 }}
+            >
               {achievement.emoji}
-            </p>
+            </motion.p>
             <p className="mt-1.5 font-display text-xs font-semibold text-ink/75">
               {achievement.title}
             </p>
             <p className="mt-0.5 line-clamp-2 font-body text-[11px] text-ink/45">
               {achievement.description}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

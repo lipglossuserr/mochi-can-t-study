@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import XPBar from '@/features/pet/components/XPBar'
 import type { Pet } from '@/features/pet/types/pet'
 
@@ -41,16 +42,24 @@ function StatTile({
   suffix?: string
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-white/50 bg-white/40 p-4">
-      <p className="text-xl" aria-hidden="true">
+    <motion.div
+      whileHover={{ y: -3, scale: 1.03 }}
+      className="glow-hover cursor-default rounded-[1.5rem] border border-white/50 bg-white/40 p-4"
+    >
+      <motion.p
+        className="text-xl"
+        aria-hidden="true"
+        whileHover={{ rotate: [0, -12, 12, 0] }}
+        transition={{ duration: 0.4 }}
+      >
         {emoji}
-      </p>
+      </motion.p>
       <p className="mt-1 font-display text-base font-semibold text-ink">
         {value}
         {suffix}
       </p>
       <p className="font-body text-[11px] text-ink/50">{label}</p>
-    </div>
+    </motion.div>
   )
 }
 

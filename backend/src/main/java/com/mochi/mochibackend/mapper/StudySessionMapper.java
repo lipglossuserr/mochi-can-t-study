@@ -1,5 +1,6 @@
 package com.mochi.mochibackend.mapper;
 
+import com.mochi.mochibackend.dto.RoomParticipantSessionResponse;
 import com.mochi.mochibackend.dto.StudySessionResponse;
 import com.mochi.mochibackend.dto.StudySessionSummaryResponse;
 import com.mochi.mochibackend.model.SessionStatus;
@@ -32,6 +33,7 @@ public class StudySessionMapper {
                 session.getId(),
                 session.getStatus().name(),
                 session.getTaskId(),
+                session.getRoomId(),
                 session.getPlannedDurationSeconds(),
                 session.getAccumulatedStudySeconds(),
                 computeRemainingSeconds(session, now),
@@ -46,6 +48,8 @@ public class StudySessionMapper {
                 session.getNoFaceSeconds(),
                 session.getMultipleFaceSeconds(),
                 session.getCameraUnavailableSeconds(),
+                session.getPhoneSeconds(),
+                session.getDrowsySeconds(),
                 session.getFocusScore(),
                 session.getCompletionRatio(),
                 session.getSessionClassification() == null ? null : session.getSessionClassification().name()
@@ -63,6 +67,44 @@ public class StudySessionMapper {
                 session.getSessionClassification() == null ? null : session.getSessionClassification().name(),
                 session.getStartedAt(),
                 session.getEndedAt()
+        );
+    }
+
+    /** Row mapping for room-summary aggregation — Study Rooms Phase 2. */
+    public RoomParticipantSessionResponse toRoomParticipant(StudySession session) {
+        return new RoomParticipantSessionResponse(
+                session.getUserUid(),
+                session.getStatus().name(),
+                session.getAccumulatedStudySeconds(),
+                session.getFocusScore(),
+                session.getSessionClassification() == null ? null : session.getSessionClassification().name()
+        );
+    }
+
+    /** Session focus timeline graph — one point per reported focus batch. */
+    public com.mochi.mochibackend.dto.FocusTimelinePointResponse toTimelinePoint(
+            com.mochi.mochibackend.model.FocusBatch batch) {
+        long monitoredMillis = batch.getFocusedMilliseconds()
+                + batch.getDistractedMilliseconds()
+                + batch.getNoFaceMilliseconds()
+                + batch.getMultipleFaceMilliseconds()
+                + batch.getPhoneMilliseconds()
+                + batch.getDrowsyMilliseconds();
+        Double focusScore = monitoredMillis == 0
+                ? null
+                : (batch.getFocusedMilliseconds() * 100.0) / monitoredMillis;
+
+        return new com.mochi.mochibackend.dto.FocusTimelinePointResponse(
+                batch.getWindowStartedAt(),
+                batch.getWindowEndedAt(),
+                batch.getFocusedMilliseconds(),
+                batch.getDistractedMilliseconds(),
+                batch.getNoFaceMilliseconds(),
+                batch.getMultipleFaceMilliseconds(),
+                batch.getCameraUnavailableMilliseconds(),
+                batch.getPhoneMilliseconds(),
+                batch.getDrowsyMilliseconds(),
+                focusScore
         );
     }
 

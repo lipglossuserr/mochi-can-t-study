@@ -1,4 +1,5 @@
 import { useCharacter } from './useCharacter'
+import { usePet } from '@/features/pet/hooks/usePet'
 import { ActiveCharacterRenderer } from '../renderers'
 
 interface CharacterProps {
@@ -19,6 +20,12 @@ interface CharacterProps {
  */
 function Character({ className }: CharacterProps) {
     const { state, position, afterglow, presence, routineFamiliarity } = useCharacter()
+    // usePet() reads from PetContext, which sits above CharacterProvider
+    // in App.tsx's own provider order (see that file's comment) — pet is
+    // deliberately optional here (null while loading/signed out) so this
+    // component never throws waiting on it; the renderer just falls back
+    // to the asset's default look until it resolves.
+    const { pet } = usePet()
 
     const positionStyle = position
         ? {
@@ -38,6 +45,7 @@ function Character({ className }: CharacterProps) {
                 afterglow={afterglow}
                 presence={presence}
                 routineFamiliarity={routineFamiliarity}
+                skin={pet?.equippedSkin}
             />
         </div>
     )

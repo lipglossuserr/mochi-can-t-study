@@ -44,6 +44,17 @@ export interface CharacterRendererProps {
      * renderer that ignores it pays nothing extra.
      */
     routineFamiliarity?: RoutineFamiliaritySnapshot | null
+    /**
+     * Shop v1.1: the pet's currently-equipped skin itemKey (e.g.
+     * "skin-calico"), if any. Same optional/decorative contract as the
+     * three hints above — a renderer that ignores it (there is none
+     * today; RiveCharacterRenderer maps it to one of mochi.riv's
+     * 'orange'/'calico'/'white' one-shot timelines) pays nothing extra,
+     * and nothing about the character's actual behavior depends on a
+     * renderer reading it. Undefined/unrecognized falls back to the
+     * asset's own default look.
+     */
+    skin?: string | null
 }
 
 export type CharacterRenderer = ComponentType<CharacterRendererProps>

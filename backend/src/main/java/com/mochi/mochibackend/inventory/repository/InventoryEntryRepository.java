@@ -24,4 +24,7 @@ public interface InventoryEntryRepository extends JpaRepository<InventoryEntry, 
      */
     @Query("SELECT e FROM InventoryEntry e JOIN FETCH e.item WHERE e.userId = :userId ORDER BY e.acquiredAt DESC")
     List<InventoryEntry> findAllByUserIdOrderByAcquiredAtDesc(@Param("userId") String userId);
+
+    /** Ownership check for {@code PetService#equipSkin}: does this user own an entry for this exact catalog item key? */
+    boolean existsByUserIdAndItem_ItemKey(String userId, String itemKey);
 }

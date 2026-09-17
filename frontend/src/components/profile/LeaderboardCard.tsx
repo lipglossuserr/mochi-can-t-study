@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import type { LeaderboardEntry } from '@/features/leaderboard'
 
 const RANK_MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
@@ -44,9 +45,10 @@ function LeaderboardCard({ topEntries, me }: LeaderboardCardProps) {
 
 function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
   return (
-    <li
-      className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 ${
-        entry.currentUser ? 'bg-taro/15 ring-1 ring-taro/40' : 'bg-white/40'
+    <motion.li
+      whileHover={{ x: 3 }}
+      className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 transition-shadow ${
+        entry.currentUser ? 'bg-taro/15 ring-1 ring-taro/40' : 'bg-white/40 hover:bg-white/60'
       }`}
     >
       <span className="w-7 shrink-0 text-center font-display text-sm font-semibold text-ink/60">
@@ -58,7 +60,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
       </span>
       <span className="shrink-0 font-body text-xs text-ink/50">Lv.{entry.level}</span>
       <span className="shrink-0 font-body text-xs text-ink/40">{entry.xp} xp</span>
-    </li>
+    </motion.li>
   )
 }
 

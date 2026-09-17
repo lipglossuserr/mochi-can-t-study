@@ -34,9 +34,13 @@ export class CharacterStateMachine {
             { id: 'idle', priority: 0 },
             { id: 'sleeping', priority: 0 },
             { id: 'studying', priority: 0 },
+            /** Posture-nudge overlay (see CharacterEvent's 'posture-nudge-suggested' doc comment) — deliberately low priority so it never interrupts a genuine reaction (feeding, celebrating, being petted); it only shows when nothing more important is already happening. */
+            { id: 'stretching', priority: 1 },
             { id: 'following-cursor', priority: 5 },
             { id: 'happy', priority: 10 },
             { id: 'being-petted', priority: 10 },
+            /** Double-tap reaction (see CharacterEvent's 'user-double-tapped' doc comment) — same tier as being-petted/happy: a genuine light reaction, just briefer. */
+            { id: 'curiosity-pause', priority: 10 },
             { id: 'eating', priority: 20 },
             { id: 'playing', priority: 20 },
             { id: 'celebrating', priority: 30 },

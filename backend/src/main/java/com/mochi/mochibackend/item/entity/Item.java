@@ -77,9 +77,16 @@ public class Item {
     @Column(name = "price", nullable = false)
     private int price;
 
-    /** Which side of Mochi a placed item renders on. Null for FOOD — food is never placed in the room, so it has no layer. */
+    /**
+     * Which side of Mochi this renders on when placed. Null for
+     * non-placeable categories: {@link ItemCategory#FOOD} (consumed via
+     * {@code InventoryService#consumeFood}, never placed) and
+     * {@link ItemCategory#SKIN} — a skin isn't placed in the room,
+     * it's equipped onto the pet itself, so "which layer" doesn't apply
+     * to either the way it does for furniture/toys/decorations.
+     */
     @Enumerated(EnumType.STRING)
-    @Column(name = "layer", nullable = true, length = 20)
+    @Column(name = "layer", length = 20)
     private ItemLayer layer;
 
     /** Path to the item's artwork, following the same {@code /public}-relative convention as {@code ShopFoodItem.image}. */

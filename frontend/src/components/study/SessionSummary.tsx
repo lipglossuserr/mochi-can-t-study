@@ -2,6 +2,9 @@ import { motion } from 'framer-motion'
 import type { StudySession } from '@/types/studySession'
 import { formatDuration } from '@/utils/timeFormat'
 import RewardCelebration from '@/features/pet/components/RewardCelebration'
+import FocusTimelineChart from '@/components/study/FocusTimelineChart'
+import ShareRecapButton from '@/features/study-recap/ShareRecapButton'
+import { usePet } from '@/features/pet/hooks/usePet'
 
 /**
  * The final result screen. Every number here is the server's calculation
@@ -48,6 +51,12 @@ function SessionSummary({
   const style = CLASSIFICATION_STYLE[classification]
   // ===== CHANGED: new line — decides whether to show the "task completed" note =====
   const taskWasAutoCompleted = classification === 'VALID' && Boolean(linkedTaskTitle)
+  // pet is null only while PetContext's own initial fetch is still in
+  // flight — SessionSummary only ever mounts after a session has
+  // already finished, by which point the dashboard's pet fetch has
+  // long since resolved, so this is a defensive null-check more than
+  // a realistic loading state.
+  const { pet } = usePet()
 
   return (
       <motion.div
@@ -79,6 +88,12 @@ function SessionSummary({
           <Row label="Focused" value={formatDuration(session.focusedSeconds)} />
           <Row label="Distracted" value={formatDuration(session.distractedSeconds)} />
           <Row label="Away from desk" value={formatDuration(session.noFaceSeconds)} />
+          {session.drowsySeconds > 0 && (
+            <Row label="Eyes closed" value={formatDuration(session.drowsySeconds)} />
+          )}
+          {session.phoneSeconds > 0 && (
+            <Row label="Phone in hand" value={formatDuration(session.phoneSeconds)} />
+          )}
           <Row
               label="Focus score"
               value={session.focusScore !== null ? `${session.focusScore} / 100` : 'no camera data'}
@@ -93,6 +108,26 @@ function SessionSummary({
           />
           <Row label="Ended as" value={session.status} />
         </div>
+
+        {session.focusScore !== null && <FocusTimelineChart sessionId={session.id} />}
+
+        {pet && (
+          <ShareRecapButton
+            data={{
+              petName: pet.name,
+              equippedSkin: pet.equippedSkin,
+              focusScore: session.focusScore,
+              studyTimeLabel: formatDuration(session.accumulatedStudySeconds),
+              currentStreak: pet.currentStreak,
+              classification,
+              dateLabel: new Date().toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              }),
+            }}
+          />
+        )}
 
         <motion.button
             type="button"

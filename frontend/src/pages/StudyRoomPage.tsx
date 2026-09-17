@@ -157,6 +157,16 @@ function StudyRoomPage() {
       useFocusTracker({
         sessionId: session?.id ?? null,
         monitoring: session?.status === 'RUNNING',
+        // Sprint: smarter focus detection. A held thumbs-up opens the
+        // same confirm dialog the Stop button does — ending a session
+        // is consequential enough that a gesture (which can misfire)
+        // should never skip the confirmation a manual click gets.
+        onGestureEndSession: () => setConfirmingStop(true),
+        onGesturePauseToggle: () => {
+          if (session?.status === 'RUNNING') void pause()
+          else if (session?.status === 'PAUSED') void resume()
+        },
+        onPostureNudge: () => characterEvents.emit({ type: 'posture-nudge-suggested' }),
       })
 
   useEffect(() => {
@@ -194,7 +204,12 @@ function StudyRoomPage() {
   useEffect(() => {
     const previous = previousCameraStateRef.current
     previousCameraStateRef.current = cameraState
-    const wasUnfocused = previous === 'DISTRACTED' || previous === 'NO_FACE' || previous === 'MULTIPLE_FACES'
+    const wasUnfocused =
+      previous === 'DISTRACTED' ||
+      previous === 'NO_FACE' ||
+      previous === 'MULTIPLE_FACES' ||
+      previous === 'DROWSY' ||
+      previous === 'PHONE'
     if (wasUnfocused && cameraState === 'FOCUSED') {
       characterEvents.emit({ type: 'study-focus-recovered' })
     }

@@ -16,15 +16,11 @@ export function formatDuration(totalSeconds: number): string {
   }
   return `${mm}:${ss}`
 }
-export function formatClockTime(seconds: number): string {
-  if (!seconds || seconds < 0) {
-    return "00:00";
-  }
 
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${String(minutes).padStart(2, "0")}:${String(
-      remainingSeconds
-  ).padStart(2, "0")}`;
+/** "7:00 PM" style wall-clock label — Study Rooms Phase 4's "Starts at …" lobby badge. Locale-aware via the browser's Intl, not hardcoded to a format. */
+export function formatClockTime(epochMs: number): string {
+  return new Date(epochMs).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }

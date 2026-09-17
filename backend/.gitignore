@@ -1,19 +1,34 @@
-# Firebase credentials — NEVER commit the real key
-firebase/serviceAccountKey.json
-
-# Maven
+# Maven build output
 target/
+*.class
+
+# Spring Boot
+*.jar
+*.war
 !.mvn/wrapper/maven-wrapper.jar
+
+# Secrets — NEVER commit these
+# application-local.properties holds real LiveKit + ops secrets; only
+# application-local.properties.example is meant to be committed.
+src/main/resources/application-local.properties
+# Firebase Admin SDK service account private key.
+firebase/serviceAccountKey.json
+.env
+.env.*
+!.env.example
 
 # IDE
 .idea/
 *.iml
 .vscode/
+!.vscode/extensions.json
 
 # OS
 .DS_Store
 
 # Logs
 *.log
-# backend/.gitignore — add this line
-application-local.properties
+
+# Firebase Functions (Node)
+functions/node_modules/
+functions/lib/

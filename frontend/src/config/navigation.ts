@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/study-room', label: 'Study Room', emoji: '📚' },
   { to: '/tasks', label: 'Tasks', emoji: '📝' },
   { to: '/daily-goals', label: 'Daily Goals', emoji: '🎯' },
-  { to: '/flashcards', label: 'Flashcards', emoji: '🃏', comingSoon: true },
+  { to: '/flashcards', label: 'Flashcards', emoji: '🃏' },
   { to: '/study-with-others', label: 'Study with Others', emoji: '👥' },
   { to: '/community', label: 'Community', emoji: '🌸' },
   { to: '/shop', label: 'Shop', emoji: '🛒' },

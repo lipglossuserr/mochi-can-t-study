@@ -8,9 +8,13 @@
 -- DECORATION); a SKIN item is equipped onto the pet, not placed in the
 -- room, so it has no layer. See Item.java's updated doc comment.
 ALTER TABLE items MODIFY COLUMN layer VARCHAR(20) NULL;
+
+-- V6's chk_items_category only allowed FURNITURE/TOY/DECORATION.
+-- SKIN is a new category introduced by this migration, so the
+-- constraint must be widened before the insert below can succeed.
 ALTER TABLE items DROP CHECK chk_items_category;
-ALTER TABLE items
-    ADD CONSTRAINT chk_items_category CHECK (category IN ('FURNITURE', 'TOY', 'DECORATION', 'FOOD', 'SKIN'));
+ALTER TABLE items ADD CONSTRAINT chk_items_category
+    CHECK (category IN ('FURNITURE', 'TOY', 'DECORATION', 'SKIN'));
 
 -- 'skin-orange' isn't inserted here: it's mochi.riv's default look and
 -- every pet already starts equipped with it (see the pets column

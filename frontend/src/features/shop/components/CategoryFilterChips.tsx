@@ -7,6 +7,7 @@ const CHIPS: { value: CategoryFilter; label: string }[] = [
     { value: 'FURNITURE', label: 'Furniture' },
     { value: 'TOY', label: 'Toys' },
     { value: 'DECORATION', label: 'Decor' },
+    { value: 'SKIN', label: 'Skins' },
 ]
 
 /**

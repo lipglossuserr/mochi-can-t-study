@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import type { Task } from '@/features/tasks'
 import { formatTaskDate, isOverdue } from '@/features/tasks/utils/formatTaskDate'
@@ -14,6 +15,17 @@ interface TaskListItemProps {
   deleting: boolean
 }
 
+interface Particle {
+  id: number
+  dx: number
+  dy: number
+  glyph: string
+}
+
+const CELEBRATE_GLYPHS = ['✦', '♡', '⋆', '✧', '🍡']
+const CELEBRATE_COUNT = 7
+const CELEBRATE_LIFETIME_MS = 750
+
 /**
  * One task row. Same rounded glass-card convention as every other list
  * row in this codebase (`TaskListSkeleton`'s shape, `PetErrorCard`'s
@@ -22,6 +34,11 @@ interface TaskListItemProps {
  * this" without needing its own label, same way `RoomActionButton`
  * favors a single tappable shape over a labeled control where the
  * action is obvious from context.
+ *
+ * Marking a task complete now gets a small celebratory burst (sparkles
+ * + a pop) — the same "boop" particle language used by Mochi herself
+ * elsewhere in the app, so finishing a task feels rewarded rather than
+ * just toggling a checkbox.
  */
 function TaskListItem({
   task,
@@ -39,31 +56,88 @@ function TaskListItem({
   const overdue = isOverdue(task.dueDate, task.status)
   const busy = completing || reopening || deleting
 
+  const [particles, setParticles] = useState<Particle[]>([])
+  const [popping, setPopping] = useState(false)
+  const idRef = useRef(0)
+
+  const celebrate = useCallback(() => {
+    setPopping(true)
+    window.setTimeout(() => setPopping(false), 380)
+
+    const burst: Particle[] = Array.from({ length: CELEBRATE_COUNT }, () => {
+      const angle = Math.random() * Math.PI * 2
+      const distance = 24 + Math.random() * 20
+      return {
+        id: idRef.current++,
+        dx: Math.cos(angle) * distance,
+        dy: Math.sin(angle) * distance,
+        glyph: CELEBRATE_GLYPHS[Math.floor(Math.random() * CELEBRATE_GLYPHS.length)],
+      }
+    })
+    setParticles((current) => [...current, ...burst])
+    window.setTimeout(() => {
+      setParticles((current) => current.filter((p) => !burst.some((b) => b.id === p.id)))
+    }, CELEBRATE_LIFETIME_MS)
+  }, [])
+
+  const handleToggle = () => {
+    if (isCompleted) {
+      onReopen(task.id)
+    } else {
+      celebrate()
+      onComplete(task.id)
+    }
+  }
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
+      whileHover={{ y: -2 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`flex items-start gap-4 rounded-[1.75rem] border border-white/50 bg-white/45 p-5 shadow-sm backdrop-blur-xl transition-opacity ${
+      className={`glow-hover flex items-start gap-4 rounded-[1.75rem] border border-white/50 bg-white/45 p-5 shadow-sm backdrop-blur-xl transition-opacity ${
         busy ? 'opacity-60' : ''
       }`}
     >
-      <button
-        type="button"
-        onClick={() => (isCompleted ? onReopen(task.id) : onComplete(task.id))}
-        disabled={busy}
-        aria-label={isCompleted ? `Mark "${task.title}" as pending` : `Mark "${task.title}" as complete`}
-        aria-pressed={isCompleted}
-        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 font-body text-sm font-bold transition-colors disabled:cursor-not-allowed ${
-          isCompleted
-            ? 'border-matcha bg-matcha text-white'
-            : 'border-taro/40 bg-white/70 text-transparent hover:border-taro hover:bg-taro-light/40'
-        }`}
-      >
-        {isCompleted ? '✓' : reopening ? '…' : completing ? '…' : ''}
-      </button>
+      <div className="relative mt-0.5 shrink-0">
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={busy}
+          aria-label={isCompleted ? `Mark "${task.title}" as pending` : `Mark "${task.title}" as complete`}
+          aria-pressed={isCompleted}
+          className={`flex h-7 w-7 items-center justify-center rounded-full border-2 font-body text-sm font-bold transition-all duration-150 disabled:cursor-not-allowed ${
+            popping ? 'scale-125' : ''
+          } ${
+            isCompleted
+              ? 'border-matcha bg-matcha text-white'
+              : 'border-taro/40 bg-white/70 text-transparent hover:scale-110 hover:border-taro hover:bg-taro-light/40'
+          }`}
+        >
+          {isCompleted ? '✓' : reopening ? '…' : completing ? '…' : ''}
+        </button>
+
+        {particles.length > 0 && (
+          <div className="pointer-events-none absolute inset-0 z-20" aria-hidden="true">
+            {particles.map((particle) => (
+              <span
+                key={particle.id}
+                className="boop-particle absolute left-1/2 top-1/2 select-none text-sm text-matcha"
+                style={
+                  {
+                    '--boop-dx': `${particle.dx}px`,
+                    '--boop-dy': `${particle.dy}px`,
+                  } as CSSProperties
+                }
+              >
+                {particle.glyph}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="min-w-0 flex-1">
         <p
@@ -109,7 +183,7 @@ function TaskListItem({
           onClick={() => onEdit(task)}
           disabled={busy}
           aria-label={`Edit "${task.title}"`}
-          className="rounded-full p-2 font-body text-sm text-ink/50 transition-colors hover:bg-blush-light hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-full p-2 font-body text-sm text-ink/50 transition-all duration-150 hover:scale-110 hover:bg-blush-light hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
         >
           ✎
         </button>
@@ -118,7 +192,7 @@ function TaskListItem({
           onClick={() => onDeleteRequest(task)}
           disabled={busy}
           aria-label={`Delete "${task.title}"`}
-          className="rounded-full p-2 font-body text-sm text-ink/50 transition-colors hover:bg-blush-light hover:text-berry disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-full p-2 font-body text-sm text-ink/50 transition-all duration-150 hover:scale-110 hover:bg-blush-light hover:text-berry disabled:cursor-not-allowed disabled:opacity-50"
         >
           🗑
         </button>

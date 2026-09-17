@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { characterEvents } from '../events/characterEventBus'
 import { prefersReducedMotion } from '../utils/reducedMotion'
+import { playBoopChirp } from '../utils/petSounds'
 
 export interface PetParticle {
     id: number
@@ -104,6 +105,14 @@ export function usePetting() {
                 lastEmitRef.current = now
                 hasEmittedThisStrokeRef.current = true
                 characterEvents.emit({ type: 'user-petted' })
+                // Fixes a loose end: tapping (PettableCharacter's boop)
+                // already had sound feedback, but stroking never did —
+                // same chirp as a boop, reused rather than adding a new
+                // synthesized sound just for this. EMIT_COOLDOWN_MS
+                // above already rate-limits this to at most ~3/sec, so
+                // a long stroke reads as a soft rhythmic purr rather
+                // than spamming the same chirp continuously.
+                playBoopChirp()
 
                 const rect = event.currentTarget.getBoundingClientRect()
                 spawnParticle(

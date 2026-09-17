@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
  *       returns the already-final session instead of erroring.</li>
  * </ul>
  */
-
 @Service
 public class StudySessionService {
 

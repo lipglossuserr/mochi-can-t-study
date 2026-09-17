@@ -26,3 +26,13 @@ export function feedPet(): PetResponse {
 export function playWithPet(): PetResponse {
   return api.post('/pet/play')
 }
+
+/**
+ * PATCH /api/pet/skin — equips an owned SKIN item (Shop v1.1). 403s
+ * with `SkinNotOwnedException`'s message if `itemKey` isn't owned (or
+ * the free default) — see `PetService.equipSkin`'s doc comment on the
+ * backend.
+ */
+export function equipSkin(itemKey: string): PetResponse {
+  return api.patch('/pet/skin', { itemKey })
+}

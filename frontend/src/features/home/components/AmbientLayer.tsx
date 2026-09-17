@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type RefObject } from 'react'
+import { useEffect, useMemo, type CSSProperties, type RefObject } from 'react'
 import { useEnvironment, useMochiEnvironmentBridge } from '@/features/environment'
 
 interface AmbientLayerProps {
@@ -40,7 +40,7 @@ const MOTE_COUNT = 9
  * mount exactly as before, so the drift never reads as a loop.
  */
 function AmbientLayer({ targetRef }: AmbientLayerProps) {
-    const { lighting, motionLevel, reducedMotion } = useEnvironment()
+    const { lighting, motionLevel, reducedMotion, weather } = useEnvironment()
     useMochiEnvironmentBridge()
 
     useEffect(() => {
@@ -66,9 +66,40 @@ function AmbientLayer({ targetRef }: AmbientLayerProps) {
         [],
     )
 
+    // Weather (opt-in — see useWeatherSync.ts). 'unknown'/'clear' render
+    // nothing here; the room already looks exactly like "no weather"
+    // for both of those, on purpose (see WEATHER_ADJUSTMENT's own
+    // comment on the engine side).
+    const rainDrops = useMemo(
+        () =>
+            weather === 'rainy' || weather === 'stormy'
+                ? Array.from({ length: weather === 'stormy' ? 26 : 16 }, (_, index) => ({
+                      id: index,
+                      left: Math.random() * 100,
+                      duration: 0.5 + Math.random() * 0.35,
+                      delay: -Math.random() * 1.5,
+                  }))
+                : [],
+        [weather],
+    )
+    const snowflakes = useMemo(
+        () =>
+            weather === 'snowy'
+                ? Array.from({ length: 14 }, (_, index) => ({
+                      id: index,
+                      left: Math.random() * 100,
+                      size: 3 + Math.random() * 3,
+                      duration: 8 + Math.random() * 6,
+                      delay: -Math.random() * 12,
+                      drift: -12 + Math.random() * 24,
+                  }))
+                : [],
+        [weather],
+    )
+
     if (reducedMotion) {
         // Reduced motion still gets the (static) light ray for atmosphere —
-        // no drifting dust, no shadow sweep. Nothing here is essential.
+        // no drifting dust, no shadow sweep, no rain/snow. Nothing here is essential.
         return (
             <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
                 <div className="absolute -left-10 -top-10 h-[70%] w-[45%] rotate-[24deg] rounded-full bg-gradient-to-b from-butter/35 via-butter/10 to-transparent blur-2xl" />
@@ -119,6 +150,44 @@ function AmbientLayer({ targetRef }: AmbientLayerProps) {
                         animationDuration: `${mote.duration}s`,
                         animationDelay: `${mote.delay}s`,
                     }}
+                />
+            ))}
+
+            {/* rain — window-streak style, straight falling lines. Storms
+                get more of them and a touch of screen-shake-free flicker
+                via env-weather-flash (see globals.css). */}
+            {rainDrops.map((drop) => (
+                <span
+                    key={drop.id}
+                    className="ambient-rain absolute top-[-10%] h-[22%] w-px bg-gradient-to-b from-transparent via-white/40 to-transparent"
+                    style={{
+                        left: `${drop.left}%`,
+                        animationDuration: `${drop.duration}s`,
+                        animationDelay: `${drop.delay}s`,
+                    }}
+                />
+            ))}
+            {weather === 'stormy' && <div className="env-weather-flash absolute inset-0 bg-white" />}
+
+            {/* snow — slow fall with a gentle side-to-side drift, distinct
+                from dust motes both in size and in not being
+                motion-scaled (snow still drifts down at "quiet, hushed"
+                speed even when --env-motion is near zero, since a snowy
+                sky is already the hushed one). */}
+            {snowflakes.map((flake) => (
+                <span
+                    key={flake.id}
+                    className="ambient-snow absolute top-[-5%] rounded-full bg-white/80"
+                    style={
+                        {
+                            left: `${flake.left}%`,
+                            width: flake.size,
+                            height: flake.size,
+                            animationDuration: `${flake.duration}s`,
+                            animationDelay: `${flake.delay}s`,
+                            '--snow-drift': `${flake.drift}px`,
+                        } as CSSProperties
+                    }
                 />
             ))}
         </div>

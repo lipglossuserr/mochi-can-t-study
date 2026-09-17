@@ -38,7 +38,11 @@ function Sidebar() {
               {item.emoji}
             </span>
             {item.label}
-            
+            {item.comingSoon && (
+              <span className="ml-auto rounded-full bg-white/70 px-2 py-0.5 font-body text-[10px] font-semibold uppercase tracking-wide text-taro/70">
+                Soon
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -27,7 +27,6 @@ export type KnownCharacterState =
     | 'curiosity-pause'
     | 'observing-room'
 
-
 export type CharacterStateId = KnownCharacterState | (string & {})
 
 export type MemoryKind = 'fed' | 'played' | 'petted' | 'celebrated'
@@ -116,7 +115,6 @@ export type CharacterEvent =
     | { type: 'food-dropped' }
     | { type: 'toy-dropped' }
     | { type: 'study-session-started' }
-
     /**
      * Sprint: Study Room integration. Fired for the local pre-session
      * countdown (a client-only UX beat — the backend session doesn't
@@ -141,12 +139,52 @@ export type CharacterEvent =
      * interaction (see CharacterEngine's STUDY_GLANCE_TARGETS).
      */
     | { type: 'study-focus-recovered' }
-    | { type: 'study-focus-recovered' }
-    | { type: 'konami-unlocked' }
-    | { type: 'streak-milestone-reached' }
+    /**
+     * Sprint: smarter focus detection. The posture heuristic (see
+     * useFocusTracker.ts) noticed a sustained slouch/forward-lean and
+     * suggests a stretch — session-local only, never sent to the
+     * backend and never affects the focus score. CharacterEngine reacts
+     * with a brief 'stretching' overlay + a friendly thought, same as
+     * any other event here; it carries no data because there's nothing
+     * state-specific to react to beyond "suggest a stretch now."
+     */
     | { type: 'posture-nudge-suggested' }
-
-
+    /**
+     * Several rapid boops in a row (see PettableCharacter's
+     * TICKLE_TAP_THRESHOLD) — a bigger, sillier reaction than a single
+     * boop's already-existing `user-petted`. Reuses the pet() action's
+     * mood/bond math (tickling is still affection) but layers a louder
+     * visual/audio moment on top, same additive pattern as the posture
+     * nudge above.
+     */
+    | { type: 'user-tickled' }
+    /**
+     * Two quick taps close together (see PettableCharacter's
+     * DOUBLE_TAP_WINDOW_MS) — a lighter, quicker "!" surprise beat,
+     * distinct from both a single boop (`user-petted`) and a tickle
+     * (`user-tickled`). Sits in the escalation ladder between them:
+     * 1 tap = boop, 2 fast taps = this, 3+ = tickle.
+     */
+    | { type: 'user-double-tapped' }
+    /**
+     * Press-and-hold without moving, past PettableCharacter's
+     * LONG_PRESS_MS — a calmer, continuous-contact reaction (closer to
+     * "petting" than "poking"), distinct from a quick tap. Pushes
+     * content-petted directly rather than the full pet()/being-petted
+     * sequence, since a hold is already the settled, comfortable beat
+     * a normal pet's sequence works UP to.
+     */
+    | { type: 'user-held' }
+    /**
+     * The classic ↑↑↓↓←→←→BA sequence, typed anywhere in the app (see
+     * useKonamiCode.ts) — a pure, no-explanation-needed gaming easter
+     * egg. Reuses celebrate() same as a tickle, since both are "the
+     * biggest, happiest reaction available," just triggered from a
+     * completely different source.
+     */
+    | { type: 'konami-unlocked' }
+    /** `pet.currentStreak` just reached a milestone (see useStreakMilestoneCelebration.ts) — its own event rather than reusing 'konami-unlocked', since the two need different speech and shouldn't be confused with each other in the engine's own logs/reasoning. */
+    | { type: 'streak-milestone-reached'; streak: number }
 
 export type CharacterEventType = CharacterEvent['type']
 

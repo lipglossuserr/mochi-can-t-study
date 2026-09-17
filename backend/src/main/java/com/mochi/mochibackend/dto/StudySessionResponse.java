@@ -22,6 +22,7 @@ public class StudySessionResponse {
     private Long id;
     private String status;
     private Long taskId;
+    private String roomId;
 
     private int plannedDurationSeconds;
     private long accumulatedStudySeconds;
@@ -40,6 +41,8 @@ public class StudySessionResponse {
     private long noFaceSeconds;
     private long multipleFaceSeconds;
     private long cameraUnavailableSeconds;
+    private long phoneSeconds;
+    private long drowsySeconds;
 
     private Integer focusScore;
     private Double completionRatio;

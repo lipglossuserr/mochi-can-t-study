@@ -6,8 +6,10 @@ import { useAchievements } from '@/features/achievements'
 import { fetchCurrentUser } from '@/services/userService'
 import { getFirebaseErrorMessage } from '@/utils/firebaseErrors'
 import FadeInSection from '@/components/FadeInSection'
+import Toast from '@/components/Toast'
 import TaskErrorState from '@/components/tasks/TaskErrorState'
 import ProfileHeader from '@/components/profile/ProfileHeader'
+import MeetMochiCard from '@/components/profile/MeetMochiCard'
 import StatsSummary from '@/components/profile/StatsSummary'
 import LeaderboardCard from '@/components/profile/LeaderboardCard'
 import AchievementGrid from '@/components/profile/AchievementGrid'
@@ -15,18 +17,20 @@ import type { UserProfile } from '@/types/auth'
 
 /**
  * ProfilePage — the real `/profile` destination, replacing the
- * ComingSoonPage placeholder. Composes four independently-loading
+ * ComingSoonPage placeholder. Composes five independently-loading
  * pieces, each already backed by a real endpoint: the user's identity
  * (`GET /api/users/me`, fetched here directly — same call the old
- * DashboardPage made), pet stats (`usePet()`, the same shared context
- * every room already reads from, so this never triggers a duplicate
- * pet fetch), the leaderboard (`GET /api/leaderboard`), and the
- * achievement catalog (`GET /api/achievements/me`). Each section shows
- * its own loading/error state rather than blocking on the slowest one.
+ * DashboardPage made), a fully interactive Mochi (`MeetMochiCard`,
+ * reusing the same pettable character + Feed/Play as Home, off the
+ * same shared `usePet()` context so nothing here can drift out of
+ * sync with Home), pet stats (`usePet()`), the leaderboard
+ * (`GET /api/leaderboard`), and the achievement catalog
+ * (`GET /api/achievements/me`). Each section shows its own
+ * loading/error state rather than blocking on the slowest one.
  */
 function ProfilePage() {
   const { currentUser, logout } = useAuth()
-  const { pet, loading: petLoading, error: petError } = usePet()
+  const { pet, loading: petLoading, error: petError, actionError, dismissActionError } = usePet()
   const { data: leaderboard, loading: leaderboardLoading, error: leaderboardError, reload: reloadLeaderboard } =
     useLeaderboard()
   const { achievements, loading: achievementsLoading, error: achievementsError, reload: reloadAchievements } =
@@ -82,13 +86,23 @@ function ProfilePage() {
         {petLoading ? (
           <SectionSkeleton />
         ) : petError || !pet ? (
+          <TaskErrorState message={petError ?? "Couldn't load Mochi."} onRetry={() => window.location.reload()} />
+        ) : (
+          <MeetMochiCard pet={pet} />
+        )}
+      </FadeInSection>
+
+      <FadeInSection delay={0.16}>
+        {petLoading ? (
+          <SectionSkeleton />
+        ) : petError || !pet ? (
           <TaskErrorState message={petError ?? "Couldn't load your stats."} onRetry={() => window.location.reload()} />
         ) : (
           <StatsSummary pet={pet} />
         )}
       </FadeInSection>
 
-      <FadeInSection delay={0.16}>
+      <FadeInSection delay={0.24}>
         {leaderboardLoading ? (
           <SectionSkeleton />
         ) : leaderboardError || !leaderboard ? (
@@ -101,7 +115,7 @@ function ProfilePage() {
         )}
       </FadeInSection>
 
-      <FadeInSection delay={0.24}>
+      <FadeInSection delay={0.32}>
         {achievementsLoading ? (
           <SectionSkeleton />
         ) : achievementsError ? (
@@ -110,6 +124,8 @@ function ProfilePage() {
           <AchievementGrid achievements={achievements} />
         )}
       </FadeInSection>
+
+      {actionError && <Toast message={actionError} onDismiss={dismissActionError} />}
     </div>
   )
 }

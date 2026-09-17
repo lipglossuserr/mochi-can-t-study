@@ -9,9 +9,19 @@
 -- given a placeholder value PlacedFurnitureLayer would never use.
 ALTER TABLE items MODIFY COLUMN layer VARCHAR(20) NULL;
 
--- Widen the category check to allow FOOD. chk_items_layer is left
--- untouched: a CHECK constraint is satisfied whenever the expression
--- evaluates NULL (not just TRUE), so a NULL layer already passes it.
+-- Widen the category check to allow FOOD *and* SKIN. chk_items_layer is
+-- left untouched: a CHECK constraint is satisfied whenever the
+-- expression evaluates NULL (not just TRUE), so a NULL layer already
+-- passes it.
+--
+-- SKIN is included here too, not just FOOD: V27__add_pet_skins.sql
+-- started inserting category='SKIN' rows without ever widening this
+-- constraint, so on a MySQL build that actually enforces CHECK
+-- constraints those inserts — and this migration running after it —
+-- would already be broken. This is the first migration to touch
+-- chk_items_category since V6, so it's the natural place to fix both
+-- categories at once rather than shipping a second one-line migration
+-- right behind it.
 ALTER TABLE items DROP CHECK chk_items_category;
 ALTER TABLE items
     ADD CONSTRAINT chk_items_category CHECK (category IN ('FURNITURE', 'TOY', 'DECORATION', 'FOOD', 'SKIN'));

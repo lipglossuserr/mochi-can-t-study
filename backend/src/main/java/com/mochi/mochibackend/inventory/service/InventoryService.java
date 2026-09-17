@@ -15,9 +15,13 @@ import java.util.List;
 
 /**
  * Read access to what a user owns, plus the ownership-safe lookup
- * RoomLayoutService uses when placing/re-placing an item, plus the
+ * {@code RoomLayoutService} uses when placing/re-placing an item (an
+ * inventory entry id belonging to another user behaves as "not found",
+ * same pattern as {@code DailyGoalService.requireOwnedGoal}), plus the
  * FOOD-only "consume" action (see consumeFood below). Granting new
- * inventory rows is still ShopService's job — see its doc comment.
+ * inventory rows is {@code ShopService}'s job, not this class's — see
+ * its doc comment for why purchase logic lives with the Shop instead
+ * of here.
  */
 @Service
 public class InventoryService {
@@ -41,7 +45,7 @@ public class InventoryService {
         return inventoryEntryRepository.findAllByUserIdOrderByAcquiredAtDesc(userId);
     }
 
-    /** The id of the RoomLayoutEntry placing this inventory entry, or null if it's still in the tray/never placeable (FOOD). */
+    /** The id of the {@code RoomLayoutEntry} placing this inventory entry, or {@code null} if it's still in the tray. */
     @Transactional(readOnly = true)
     public Long placementIdFor(Long inventoryEntryId) {
         return roomLayoutRepository.findByInventoryEntryId(inventoryEntryId)
@@ -49,7 +53,7 @@ public class InventoryService {
                 .orElse(null);
     }
 
-    /** Ownership-safe lookup used by RoomLayoutService before placing/re-placing an item. */
+    /** Ownership-safe lookup used by {@code RoomLayoutService} before placing/re-placing an item. */
     @Transactional(readOnly = true)
     public InventoryEntry requireOwnedEntry(String userId, Long inventoryEntryId) {
         return inventoryEntryRepository.findByIdAndUserId(inventoryEntryId, userId)

@@ -22,11 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * The /api/inventory contract: everything a user owns, whether placed
- * in the room, still sitting in the tray, or (FOOD only) waiting to be
- * dropped on Mochi. New rows are still only ever created by
- * POST /api/shop/purchase; this controller only reads and — for
- * FOOD — consumes.
+ * The {@code /api/inventory} contract: everything a user owns, whether
+ * placed in the room, still sitting in the tray, or (FOOD only) waiting
+ * to be dropped on Mochi. New rows are still only ever created by
+ * {@code POST /api/shop/purchase} (see {@code ShopController}) — this
+ * controller only reads and — for FOOD — consumes.
  */
 @RestController
 @RequestMapping("/api/inventory")

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,9 @@ public interface PetRepository extends JpaRepository<Pet, Long> {
     Optional<Pet> findByUserId(String userId);
 
     boolean existsByUserId(String userId);
+
+    /** Batch cosmetic lookup for presence tiles (Study Rooms Phase 2) — never auto-provisions, unlike {@code getPet}. */
+    List<Pet> findAllByUserIdIn(Collection<String> userIds);
 
     /** Leaderboard top entries: highest level first, xp as the tiebreaker. */
     List<Pet> findTop10ByOrderByLevelDescXpDesc();

@@ -11,6 +11,8 @@ const STATUS: Record<CameraState, { label: string; className: string; dot: strin
   PERMISSION_REQUIRED: { label: 'Waiting for camera permission', className: 'bg-butter text-ink/70', dot: 'bg-rosegold' },
   FOCUSED: { label: 'Focused', className: 'bg-matcha-light text-ink', dot: 'bg-matcha' },
   DISTRACTED: { label: 'Looks away from desk', className: 'bg-butter text-ink', dot: 'bg-rosegold' },
+  DROWSY: { label: 'Eyes closed for a while', className: 'bg-butter text-ink', dot: 'bg-rosegold' },
+  PHONE: { label: 'Phone in hand?', className: 'bg-butter text-ink', dot: 'bg-rosegold' },
   NO_FACE: { label: 'No one at the desk', className: 'bg-blush-light text-ink', dot: 'bg-blush' },
   MULTIPLE_FACES: { label: 'More than one face', className: 'bg-blush-light text-ink', dot: 'bg-berry' },
   CAMERA_DENIED: { label: 'Camera permission denied', className: 'bg-blush-light text-berry', dot: 'bg-berry' },

@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { useAuth } from '@/auth/AuthContext'
 import { useCharacter, characterEvents, toLegacyPetState } from '@/features/character'
-import { fetchPet, feedPet, playWithPet } from '../api/petService'
+import { fetchPet, feedPet, playWithPet, equipSkin } from '../api/petService'
 import { friendlyMessage } from '../utils/apiErrors'
 import {
   computeRewardDiff,
@@ -62,6 +62,8 @@ interface PetContextValue {
   celebrateReward: (ref: RewardSourceRef) => Promise<void>
   /** Study Room's specific call site — a thin wrapper over celebrateReward(). */
   celebrateStudyReward: (sessionId: number) => Promise<void>
+  /** Equips an owned SKIN item and refreshes the pet — see `petService.equipSkin`'s doc comment. Throws on a 403 (not owned) so the Shop can show that inline rather than as a silent no-op. */
+  equipPetSkin: (itemKey: string) => Promise<void>
 }
 
 const PetContext = createContext<PetContextValue | undefined>(undefined)
@@ -260,6 +262,11 @@ export function PetProvider({ children }: { children: ReactNode }) {
     [celebrateReward],
   )
 
+  const equipPetSkin = useCallback(async (itemKey: string) => {
+    const response = await equipSkin(itemKey)
+    setPet(response.data.data)
+  }, [])
+
   return (
       <PetContext.Provider
           value={{
@@ -278,6 +285,7 @@ export function PetProvider({ children }: { children: ReactNode }) {
             celebration,
             celebrateReward,
             celebrateStudyReward,
+            equipPetSkin,
           }}
       >
         {children}

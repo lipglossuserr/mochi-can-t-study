@@ -61,6 +61,47 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(ex.getMessage());
     }
 
+    // ---------------------------------------------------------------
+    // Co-Study Rooms (video/moderation)
+    // ---------------------------------------------------------------
+
+    @ExceptionHandler(CoStudyRoomNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleCoStudyRoomNotFound(CoStudyRoomNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(NotRoomHostException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleNotRoomHost(NotRoomHostException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(LiveKitAdminCallException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
+    public ApiResponse<Void> handleLiveKitAdminCall(LiveKitAdminCallException ex) {
+        return ApiResponse.error("Couldn't reach the video service to complete that action. Please try again.");
+    }
+
+    /** LiveKit credentials aren't set on this deployment yet — Study Rooms Phase 3. */
+    @ExceptionHandler(VideoNotConfiguredException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleVideoNotConfigured(VideoNotConfiguredException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(SkinNotOwnedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleSkinNotOwned(SkinNotOwnedException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(StudyBuddyEntryNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleStudyBuddyEntryNotFound(StudyBuddyEntryNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
     @ExceptionHandler({InvalidFocusBatchException.class, InvalidSessionRequestException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleSessionBadRequest(RuntimeException ex) {
@@ -121,6 +162,7 @@ public class GlobalExceptionHandler {
     public ApiResponse<Void> handleItemAlreadyPlaced(ItemAlreadyPlacedException ex) {
         return ApiResponse.error(ex.getMessage());
     }
+
     /** POST /api/inventory/{id}/consume targeted a non-FOOD item. */
     @ExceptionHandler(InventoryItemNotFoodException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -128,10 +170,10 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(ex.getMessage());
     }
 
-    /** POST /api/room-layout targeted a FOOD item, which has no room layer. */
-    @ExceptionHandler(FoodItemNotPlaceableException.class)
+    /** POST /api/room-layout targeted a FOOD or SKIN item, neither of which has a room layer. */
+    @ExceptionHandler(ItemNotPlaceableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleFoodItemNotPlaceable(FoodItemNotPlaceableException ex) {
+    public ApiResponse<Void> handleItemNotPlaceable(ItemNotPlaceableException ex) {
         return ApiResponse.error(ex.getMessage());
     }
 
@@ -156,6 +198,11 @@ public class GlobalExceptionHandler {
     public ApiResponse<Void> handleParameterTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ApiResponse.error("Invalid value for parameter '" + ex.getName() + "'");
     }
+
+    // ---------------------------------------------------------------
+    // Flashcards
+    // ---------------------------------------------------------------
+
     @ExceptionHandler(FlashcardDeckNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleFlashcardDeckNotFound(FlashcardDeckNotFoundException ex) {
@@ -191,12 +238,170 @@ public class GlobalExceptionHandler {
     public ApiResponse<Void> handleOptimisticLock(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
         return ApiResponse.error("The session was modified by another request. Please refresh and try again.");
     }
-    /** Last-resort net for anything not handled above — e.g. a future LazyInitializationException-shaped bug. Logged server-side; the client just gets a safe generic message. */
-    @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ApiResponse<Void> handleUnexpected(Exception ex) {
-        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unhandled exception", ex);
-        return ApiResponse.error("Something went wrong on our end. Please try again.");
+
+    // ---------------------------------------------------------------
+    // Community Rooms (Phase 1)
+    // ---------------------------------------------------------------
+
+    @ExceptionHandler(CommunityNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleCommunityNotFound(CommunityNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(CommunitySlugAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleCommunitySlugAlreadyExists(CommunitySlugAlreadyExistsException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(NotCommunityMemberException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleNotCommunityMember(NotCommunityMemberException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(InsufficientCommunityRoleException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleInsufficientCommunityRole(InsufficientCommunityRoleException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(MembershipRequestNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleMembershipRequestNotFound(MembershipRequestNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(SoleAdminCannotLeaveException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleSoleAdminCannotLeave(SoleAdminCannotLeaveException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(BannedFromCommunityException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleBannedFromCommunity(BannedFromCommunityException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(LastAdminCannotBeDemotedException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleLastAdminCannotBeDemoted(LastAdminCannotBeDemotedException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    // ---------------------------------------------------------------
+    // Community Rooms (Phase 2 — posts & polls)
+    // ---------------------------------------------------------------
+
+    @ExceptionHandler(PostNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handlePostNotFound(PostNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPostRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleInvalidPostRequest(InvalidPostRequestException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(NotPostAuthorException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleNotPostAuthor(NotPostAuthorException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(AlreadyVotedException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleAlreadyVoted(AlreadyVotedException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(PollOptionNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handlePollOptionNotFound(PollOptionNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(CommentNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleCommentNotFound(CommentNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(NotCommentAuthorException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleNotCommentAuthor(NotCommentAuthorException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCommentRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleInvalidCommentRequest(InvalidCommentRequestException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    // ---------------------------------------------------------------
+    // Community Rooms (Phase 4 — blog posts)
+    // ---------------------------------------------------------------
+
+    @ExceptionHandler(BlogPostNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleBlogPostNotFound(BlogPostNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(NotBlogAuthorException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleNotBlogAuthor(NotBlogAuthorException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidBlogPostRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleInvalidBlogPostRequest(InvalidBlogPostRequestException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    // ---------------------------------------------------------------
+    // Community Rooms (Phase 5 — moderation report queue)
+    // ---------------------------------------------------------------
+
+    @ExceptionHandler(ReportNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleReportNotFound(ReportNotFoundException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(AlreadyReportedException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleAlreadyReported(AlreadyReportedException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    // ---------------------------------------------------------------
+    // Community Rooms (chat send — the free, Spring-hosted
+    // replacement for the Cloud-Function path; see ChatService's javadoc)
+    // ---------------------------------------------------------------
+
+    @ExceptionHandler(InvalidChatMessageException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleInvalidChatMessage(InvalidChatMessageException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidModerationReportException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleInvalidModerationReport(InvalidModerationReportException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(ChatRateLimitedException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ApiResponse<Void> handleChatRateLimited(ChatRateLimitedException ex) {
+        return ApiResponse.error(ex.getMessage());
     }
 
 }

@@ -123,26 +123,20 @@ public class RewardService {
 
         return petService.save(pet);
     }
+
     /**
-     * Applies the reward for one completed flashcard deck and persists
-     * the result. Unlike applyStudySessionCompletionReward this method
-     * derives its own xp/coins straight from cardCount — RewardService
-     * owns the per-card rate here, the same division of labor as the
-     * per-minute rate for a study session — rather than receiving an
-     * already-computed amount the way applyTaskCompletionReward does.
-     * <p>
-     * No bond increase and no streak update, same reasoning as
-     * applyTaskCompletionReward: reviewing a deck is a quick,
-     * self-paced win rather than the kind of sustained co-presence
-     * bond represents, and the streak specifically tracks study-session
-     * days.
+     * Applies the reward for one completed flashcard deck. Same
+     * division of labor as applyTaskCompletionReward: the caller
+     * (FlashcardDeckService) has already confirmed this is the one
+     * real transition into completed=true before calling here, so a
+     * repeated "Complete Deck" tap can never double-grant XP/coins.
      */
     @Transactional
     public Pet applyFlashcardDeckCompletionReward(String userId, int cardCount) {
         Pet pet = petService.getPet(userId);
 
         int xpGained = cardCount * RewardPolicy.FLASHCARD_XP_PER_CARD;
-        int coinsGained = cardCount * RewardPolicy.FLASHCARD_COINS_PER_CARD;
+        int coinsGained = Math.max(RewardPolicy.FLASHCARD_MIN_COINS, cardCount / RewardPolicy.FLASHCARD_COINS_DIVISOR);
 
         pet.setXp(pet.getXp() + xpGained);
         pet.setCoins(pet.getCoins() + coinsGained);
